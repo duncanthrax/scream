@@ -1,0 +1,132 @@
+[Version]
+Signature="$CHICAGO$"
+Class=MEDIA
+Provider=%SCR%
+ClassGUID={4d36e96c-e325-11ce-bfc1-08002be10318}
+DriverVer = 02/22/2007, 6.0.6000.1
+CatalogFile=scream.cat
+
+[SourceDisksNames]
+222="Scream Driver Disk","",222
+
+[SourceDisksFiles]
+scream.sys=222
+
+;;This syntax is only recognized on Windows XP and above- it is needed to install 64-bit drivers on
+;;Windows Server 2003 Service Pack 1 and above.
+
+[Manufacturer]
+%MfgName%=MicrosoftDS,NTAMD64,NTIA64
+
+;;  For Windows Server 2003 Service Pack 1 and above, a 64-bit OS will not install a driver
+;;  unless the Manufacturer and Models Sections explicitly show it is a driver for that platform
+;;  But the individual model section decorations (or lack thereof) work as they always have.
+;;  All of the model sections referred to are undecorated or NT-decorated, hence work on all platforms
+
+[MicrosoftDS]
+%Scream.DeviceDesc%=Scream,*MSVADSimple
+
+[MicrosoftDS.NTAMD64]
+%Scream.DeviceDesc%=Scream,*MSVADSimple
+
+[MicrosoftDS.NTIA64]
+%Scream.DeviceDesc%=Scream,*MSVADSimple
+
+[DestinationDirs]
+Scream.CopyList=10,system32\drivers
+
+;======================================================
+; Scream
+;======================================================
+[Scream]
+AlsoInstall=ks.registration(ks.inf),wdmaudio.registration(wdmaudio.inf)
+CopyFiles=Scream.CopyList
+AddReg=Scream.AddReg
+
+[Scream.CopyList]
+Scream.sys
+
+[Scream.Interfaces]
+AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Wave%,MSVAD.I.Wave
+AddInterface=%KSCATEGORY_RENDER%,%KSNAME_Wave%,MSVAD.I.Wave
+AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Topology%,MSVAD.I.Topo
+
+[Scream.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,redbook"
+HKR,,Driver,,Scream.sys
+
+HKR,Drivers,SubClasses,,"wave,mixer"
+
+HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\mixer\wdmaud.drv,Driver,,wdmaud.drv
+
+HKR,Drivers\wave\wdmaud.drv,Description,,%Scream.DeviceDesc%
+HKR,Drivers\mixer\wdmaud.drv,Description,,%Scream.DeviceDesc%
+
+HKLM,%MediaCategories%\%Scream.NameGuid%,Name,,%Scream.Name%
+
+;======================================================
+; COMMON
+;======================================================
+[Scream.I.Wave]
+AddReg=Scream.I.Wave.AddReg
+
+[Scream.I.Wave.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%Scream.Wave.szPname%
+
+[Scream.I.Topo]
+AddReg=Scream.I.Topo.AddReg
+
+[Scream.I.Topo.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%Scream.Topo.szPname%
+
+;======================================================
+; MSVAD_SIMPLE
+;======================================================
+[Scream.NT]
+Include=ks.inf,wdmaudio.inf
+Needs=KS.Registration, WDMAUDIO.Registration
+CopyFiles=Scream.CopyList
+AddReg=Scream.AddReg
+
+[Scream.NT.Interfaces]
+AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Wave%,Scream.I.Wave
+AddInterface=%KSCATEGORY_RENDER%,%KSNAME_Wave%,Scream.I.Wave
+AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Topology%,Scream.I.Topo
+
+[Scream.NT.Services]
+AddService=Scream,0x00000002,Scream_Service_Inst
+
+[Scream_Service_Inst]
+DisplayName=%Scream.SvcDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%10%\system32\drivers\Scream.sys
+
+;======================================================
+; COMMON
+;======================================================
+[Strings]
+SCR="Tom Kistner"
+MfgName="Tom Kistner"
+
+Scream.Name="Scream"
+Scream.NameGuid="{946A7B1A-EBBC-422a-A81F-F07C8D40D3B4}"
+Scream.DeviceDesc="Scream (WDM)"
+Scream.SvcDesc="Scream (WDM)"
+
+Scream.Wave.szPname="Scream Wave"
+Scream.Topo.szPname="Scream Topology"
+
+Proxy.CLSID="{17CCA71B-ECD7-11D0-B908-00A0C9223196}"
+KSCATEGORY_AUDIO="{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
+KSCATEGORY_RENDER="{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_CAPTURE="{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
+
+KSNAME_Wave="Wave"
+KSNAME_Topology="Topology"
+
+MediaCategories="SYSTEM\CurrentControlSet\Control\MediaCategories"
