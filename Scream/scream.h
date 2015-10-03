@@ -1,13 +1,3 @@
-/*++
-Copyright (c) 1997-2000  Microsoft Corporation All Rights Reserved
-
-Module Name:
-    Msvad.h
-
-Abstract:
-    Header file for common stuff.
---*/
-
 #ifndef _MSVAD_H_
 #define _MSVAD_H_
 
@@ -39,10 +29,10 @@ DEFINE_GUIDSTRUCT("5B722BF8-F0AB-47ee-B9C8-8D61D31375A1", PID_MSVAD);
 #define PID_MSVAD DEFINE_GUIDNAMED(PID_MSVAD)
 
 // Pool tag used for MSVAD allocations
-#define MSVAD_POOLTAG               'DVSM'  
+#define MSVAD_POOLTAG               'DVSM'
 
 // Debug module name
-#define STR_MODULENAME              "MSVAD: "
+#define STR_MODULENAME              "Scream: "
 
 // Debug utility macros
 #define D_FUNC                      4
