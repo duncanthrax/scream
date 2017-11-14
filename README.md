@@ -6,7 +6,7 @@ published on your local network as a PCM multicast stream.
 
 Receivers on the network can pick up the stream and play it
 through their own audio outputs. A simple server for Linux
-(interfacing with PulseAudio) is provided.
+(interfacing with PulseAudio) and one for Windows are provided.
 
 Scream is based on Microsoft's MSVAD audio driver sample code.
 
