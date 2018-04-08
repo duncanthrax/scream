@@ -16,14 +16,14 @@ Abstract:
 #include "minstream.h"
 #include "wavtable.h"
 
-#pragma code_seg("PAGE")
+// #pragma code_seg("PAGE")
 
 //=============================================================================
 // CMiniportWaveStreamCyclic
 //=============================================================================
 CMiniportWaveCyclicStream::CMiniportWaveCyclicStream(PUNKNOWN other) : CUnknown(other)
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     m_pMiniport = NULL;
     m_fCapture = FALSE;
@@ -57,7 +57,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclicStream::~CMiniportWaveCyclicStream]"));
 
@@ -104,7 +104,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(Miniport_);
     ASSERT(DataFormat_);
@@ -205,7 +205,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(Object);
 
@@ -324,7 +324,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(Format);
 
@@ -375,7 +375,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(FramingSize);
 
@@ -404,7 +404,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclicStream::SetState]"));
 
@@ -485,7 +485,7 @@ Return Value:
 } // Silence
 
 
-#pragma code_seg("PAGE")
+// #pragma code_seg("PAGE")
 //=============================================================================
 STDMETHODIMP_(NTSTATUS) CMiniportWaveCyclicStream::AllocateBuffer(
     IN ULONG                    BufferSize,
@@ -514,7 +514,7 @@ Return Value:
 {
     UNREFERENCED_PARAMETER(PhysicalAddressConstraint);
 
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclicStream::AllocateBuffer]"));
 
@@ -623,7 +623,7 @@ Return Value:
 } // CopyTo
 
 //=============================================================================
-#pragma code_seg("PAGE")
+// #pragma code_seg("PAGE")
 STDMETHODIMP_(void) CMiniportWaveCyclicStream::FreeBuffer(void)
 /*++
 Routine Description:
@@ -638,7 +638,7 @@ Return Value:
   void
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclicStream::FreeBuffer]"));
 

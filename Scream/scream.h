@@ -2,6 +2,7 @@
 #define _MSVAD_H_
 
 #include <portcls.h>
+#pragma warning(disable:4595)
 #include <stdunk.h>
 #include <ksdebug.h>
 #include "kshelper.h"

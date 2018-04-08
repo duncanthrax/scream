@@ -20,7 +20,7 @@ Abstract:
 #include "minwave.h"
 #include "wavtable.h"
 
-#pragma code_seg("PAGE")
+// #pragma code_seg("PAGE")
 
 //=============================================================================
 // CMiniportWaveCyclic
@@ -47,7 +47,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(Unknown);
 
@@ -65,7 +65,7 @@ Arguments:
 Return Value:
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclic::CMiniportWaveCyclic]"));
 
@@ -105,7 +105,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclic::~CMiniportWaveCyclic]"));
     
@@ -164,7 +164,7 @@ Return Value:
     UNREFERENCED_PARAMETER(ResultantFormat);
     UNREFERENCED_PARAMETER(ResultantFormatLength);
 
-    PAGED_CODE();
+    // PAGED_CODE();
 
     // This driver only supports PCM formats.
     // Portcls will handle the request for us.
@@ -191,7 +191,7 @@ Return Value:
 
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(OutFilterDescriptor);
 
@@ -226,7 +226,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     UNREFERENCED_PARAMETER(ResourceList_);
 
@@ -328,7 +328,7 @@ Return Value:
 {
     UNREFERENCED_PARAMETER(PoolType);
 
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(OutStream);
     ASSERT(DataFormat);
@@ -420,7 +420,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(Object);
 
@@ -459,7 +459,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[PropertyHandlerComponentId]"));
 
@@ -509,7 +509,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[PropertyHandlerProposedFormat]"));
 
@@ -573,7 +573,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(PropertyRequest);
 
@@ -609,7 +609,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(PropertyRequest);
     ASSERT(PropertyRequest->PropertyItem);
@@ -646,7 +646,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     ASSERT(pDataFormat);
 
@@ -701,7 +701,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     DPF_ENTER(("[CMiniportWaveCyclic::ValidatePcm]"));
 
@@ -772,7 +772,7 @@ Return Value:
   NT status code.
 --*/
 {
-    PAGED_CODE();
+    // PAGED_CODE();
 
     NTSTATUS                    ntStatus = STATUS_INVALID_DEVICE_REQUEST;
     PCMiniportWaveCyclic        pWave = (PCMiniportWaveCyclic) PropertyRequest->MajorTarget;
