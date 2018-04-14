@@ -3,7 +3,7 @@ Signature="$CHICAGO$"
 Class=MEDIA
 Provider=%SCR%
 ClassGUID={4d36e96c-e325-11ce-bfc1-08002be10318}
-DriverVer=07/05/2017,21.24.44.285
+DriverVer = 04/08/2018,17.14.58.308
 CatalogFile=scream.cat
 
 [SourceDisksNames]
@@ -21,18 +21,8 @@ scream.sys=222
 [DestinationDirs]
 Scream.CopyList=10,system32\drivers
 
-[Scream]
-AlsoInstall=ks.registration(ks.inf),wdmaudio.registration(wdmaudio.inf)
-CopyFiles=Scream.CopyList
-AddReg=Scream.AddReg
-
 [Scream.CopyList]
 Scream.sys
-
-[Scream.Interfaces]
-AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Wave%,SCREAM.I.Wave
-AddInterface=%KSCATEGORY_RENDER%,%KSNAME_Wave%,SCREAM.I.Wave
-AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Topology%,SCREAM.I.Topo
 
 [Scream.AddReg]
 HKR,,AssociatedFilters,,"wdmaud,redbook"
