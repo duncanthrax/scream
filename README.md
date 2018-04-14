@@ -14,8 +14,9 @@ Scream is based on Microsoft's MSVAD audio driver sample code.
 Download and install
 ---------------------------------------------------------------
 A ZIP file containing a signed x64 build is [available on the
-GitHub releases page](https://github.com/duncanthrax/scream/releases). The "installer" is a batch file that needs
-to be run with administrator rights.
+GitHub releases page](https://github.com/duncanthrax/scream/releases).
+The "installer" is a batch file that needs to be run with
+administrator rights.
 
 The build is supposed to run on all x64 versions of Windows 7
 through Windows 10. 
@@ -51,5 +52,5 @@ Both receivers can be run as unprivileged users.
 
 Building
 -------------------------------------------------------------
-VS2013 and WDK are required. You might also have luck with
-earlier (or future) VS versions, but I didn't test that.
+VS2015 and matching WDK are required. You might also have
+luck with earlier (or future) VS versions, but I didn't test that.
