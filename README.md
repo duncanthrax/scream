@@ -35,7 +35,7 @@ All audio played through the Scream device will be put onto
 the local LAN as a multicast stream. The multicast target address
 and port is always "239.255.77.77:4010". The audio is a raw PCM
 stream, always 44100kHz, 16bit, stereo. It is transferred in UDP
-frames with a payload size of max. 882 bytes, representing 1/200
+frames with a payload size of max. 980 bytes, representing 1/180
 second of audio. Delay is minimal, since all processing is done
 on kernel level.
 
