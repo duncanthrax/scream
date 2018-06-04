@@ -8,7 +8,7 @@
 //=============================================================================
 #define MULTICAST_TARGET	"239.255.77.77"
 #define MULTICAST_PORT		4010
-#define CHUNK_SIZE			882							// UDP payload size (44100Hz stereo, 16 bit, 1/200 sec)
+#define CHUNK_SIZE			980							// UDP payload size (44100Hz stereo, 16 bit, 1/180 sec)
 #define NUM_CHUNKS			20							// How many payloads in ring buffer
 #define BUFFER_SIZE			CHUNK_SIZE * NUM_CHUNKS		// Ring buffer size
 
