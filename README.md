@@ -21,6 +21,13 @@ administrator rights.
 The build is supposed to run on all x64 versions of Windows 7
 through Windows 10. 
 
+Microsoft has [recently tightened the rules for signing kernel
+drivers](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/kernel-mode-code-signing-policy--windows-vista-and-later-). These new rules apply to newer Windows 10 installations
+that were not upgraded from an earlier version. If your installation
+is subject to these rules, the driver will not install.
+**Workaround: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
+For more information, see [this issue](https://github.com/duncanthrax/scream/issues/8).
+
 
 Usage
 ---------------------------------------------------------------
