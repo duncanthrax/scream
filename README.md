@@ -52,8 +52,8 @@ Three receivers are provided:
 - Linux/Pulseaudio: Not included in the installer package. Just
 type 'make' to build it.
 
-- Linux/ALSA: Not included in the installer package. Just type
-'make' to build it.
+- Linux/ALSA: Contributed by @ivan. Not included in the installer
+package. Just type 'make' to build it.
 
 - Windows: ScreamReader, contributed by @MrShoenel. Included in
 the installer package as of version 1.2.
