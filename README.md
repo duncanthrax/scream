@@ -5,8 +5,9 @@ discrete sound device. Audio played through this device is
 published on your local network as a PCM multicast stream.
 
 Receivers on the network can pick up the stream and play it
-through their own audio outputs. A simple server for Linux
-(interfacing with PulseAudio) and one for Windows are provided.
+through their own audio outputs. Two simple servers for Linux
+(interfacing with PulseAudio or ALSA) and one for Windows are
+provided.
 
 Scream is based on Microsoft's MSVAD audio driver sample code.
 
@@ -46,15 +47,18 @@ usually sufficient to just open a multicast listen socket and
 start reading from it. Minimal buffering (~ 4 times the UDP
 payload size) should be done to account for jitter.
 
-Two receivers are provided: 
+Three receivers are provided: 
 
 - Linux/Pulseaudio: Not included in the installer package. Just
 type 'make' to build it.
 
+- Linux/ALSA: Not included in the installer package. Just type
+'make' to build it.
+
 - Windows: ScreamReader, contributed by @MrShoenel. Included in
 the installer package as of version 1.2.
 
-Both receivers can be run as unprivileged users.
+All three receivers can be run as unprivileged users.
 
 
 Building
