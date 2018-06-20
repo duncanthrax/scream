@@ -15,7 +15,6 @@
 #define MAX_SO_PACKETSIZE 1764
 #define BYTES_PER_SAMPLE 2
 #define CHANNELS 2
-#define TYPICAL_SAMPLES_PER_PACKET (980 / (BYTES_PER_SAMPLE * CHANNELS))
 
 #define SNDCHK(call, ret) { \
   if (ret < 0) {            \
@@ -31,7 +30,7 @@ static void alsa_error(const char *msg, int r)
 
 static void show_usage(const char *arg0)
 {
-  fprintf(stderr, "Usage: %s [-i interface_name_or_address] [-t alsa_output_start_threshold]\n",
+  fprintf(stderr, "Usage: %s [-v] [-i interface_name_or_address] [-t target_latency_ms]\n",
 	  arg0);
   exit(1);
 }
@@ -74,68 +73,58 @@ error_exit:
   exit(1);
 }
 
-static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, unsigned int channels, int start_threshold)
+static int dump_alsa_info(snd_pcm_t *pcm)
 {
   int ret;
-  snd_pcm_hw_params_t *hw;
-  snd_pcm_sw_params_t *sw;
+  snd_output_t *log;
 
-  snd_pcm_hw_params_alloca(&hw);
+  ret = snd_output_stdio_attach(&log, stderr, 0);
+  SNDCHK("snd_output_stdio_attach", ret);
 
-  ret = snd_pcm_hw_params_any(pcm, hw);
-  SNDCHK("snd_pcm_hw_params_any", ret);
+  ret = snd_pcm_dump(pcm, log);
+  SNDCHK("snd_pcm_dump", ret);
 
-  ret = snd_pcm_hw_params_set_rate_resample(pcm, hw, 1);
-  SNDCHK("snd_pcm_hw_params_set_rate_resample", ret);
-
-  ret = snd_pcm_hw_params_set_access(pcm, hw, SND_PCM_ACCESS_RW_INTERLEAVED);
-  SNDCHK("snd_pcm_hw_params_set_access", ret);
-
-  ret = snd_pcm_hw_params_set_format(pcm, hw, SND_PCM_FORMAT_S16_LE);
-  SNDCHK("snd_pcm_hw_params_set_format", ret);
-
-  ret = snd_pcm_hw_params_set_rate_near(pcm, hw, &rate, 0);
-  SNDCHK("snd_pcm_hw_params_set_rate_near", ret);
-
-  ret = snd_pcm_hw_params_set_channels(pcm, hw, channels);
-  SNDCHK("snd_pcm_hw_params_set_channels", ret);
-
-  ret = snd_pcm_hw_params(pcm, hw);
-  SNDCHK("hw_params", ret);
-
-  ret = snd_pcm_prepare(pcm);
-  SNDCHK("snd_pcm_prepare", ret);
-
-  snd_pcm_sw_params_alloca(&sw);
-
-  ret = snd_pcm_sw_params_current(pcm, sw);
-  SNDCHK("snd_pcm_sw_params_current", ret);
-
-  // Avoid underruns
-  ret = snd_pcm_sw_params_set_start_threshold(pcm, sw, start_threshold);
-  SNDCHK("snd_pcm_sw_params_set_start_threshold", ret);
-
-  ret = snd_pcm_sw_params(pcm, sw);
-  SNDCHK("snd_pcm_sw_params", ret);
+  ret = snd_output_close(log);
+  SNDCHK("snd_output_close", ret);
 
   return 0;
 }
 
-static int write_frames(snd_pcm_t *snd, void *pcm, int num_frames)
+static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, int verbosity, unsigned int target_latency_ms)
 {
   int ret;
-  snd_pcm_sframes_t f;
+  int soft_resample = 1;
+  unsigned int latency = target_latency_ms * 1000;
 
-  f = snd_pcm_writei(snd, pcm, num_frames);
-  if (f < 0) {
-    ret = snd_pcm_recover(snd, f, 0);
-    SNDCHK("snd_pcm_recover", ret);
-    return 0;
+  ret = snd_pcm_set_params(pcm, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED,
+                           CHANNELS, rate, soft_resample, latency);
+  SNDCHK("snd_pcm_set_params", ret);
+
+  if (verbosity > 0) {
+    return dump_alsa_info(pcm);
   }
-  if (f < num_frames) {
-    fprintf(stderr, "Short write %ld\n", f);
+
+  return 0;
+}
+
+static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE], int total_frames)
+{
+  int i = 0;
+  int ret;
+  snd_pcm_sframes_t written;
+
+  while (i < total_frames) {
+    written = snd_pcm_writei(snd, &buf[i * BYTES_PER_SAMPLE * CHANNELS], total_frames - i);
+    if (written < 0) {
+      ret = snd_pcm_recover(snd, written, 0);
+      SNDCHK("snd_pcm_recover", ret);
+      return 0;
+    } else if (written < total_frames - i) {
+      fprintf(stderr, "Writing again after short write %ld < %d\n", written, total_frames - i);
+    }
+    i += written;
   }
-  return num_frames;
+  return 0;
 }
 
 int main(int argc, char *argv[])
@@ -148,17 +137,21 @@ int main(int argc, char *argv[])
   unsigned char buf[MAX_SO_PACKETSIZE];
   in_addr_t interface = INADDR_ANY;
   int opt;
+  int verbosity = 0;
   unsigned int rate = 44100;
   int samples;
-  int start_threshold = TYPICAL_SAMPLES_PER_PACKET * 8;
+  int target_latency_ms = 50;
 
-  while ((opt = getopt(argc, argv, "i:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:t:v")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
       break;
     case 't':
-      start_threshold = atoi(optarg);
+      target_latency_ms = atoi(optarg);
+      break;
+    case 'v':
+      verbosity += 1;
       break;
     default:
       show_usage(argv[0]);
@@ -173,7 +166,7 @@ int main(int argc, char *argv[])
   ret = snd_pcm_open(&snd, device, SND_PCM_STREAM_PLAYBACK, 0);
   SNDCHK("snd_pcm_open", ret);
 
-  if (setup_alsa(snd, rate, CHANNELS, start_threshold) == -1) {
+  if (setup_alsa(snd, rate, verbosity, target_latency_ms) == -1) {
     return -1;
   }
 
@@ -194,6 +187,6 @@ int main(int argc, char *argv[])
   for (;;) {
     n = recvfrom(sockfd, &buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
     samples = n / (BYTES_PER_SAMPLE * CHANNELS);
-    write_frames(snd, &buf, samples);
+    write_frames(snd, buf, samples);
   }
 }
