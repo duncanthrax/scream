@@ -74,12 +74,21 @@ error_exit:
   exit(1);
 }
 
-static void dump_alsa_info(snd_pcm_t *pcm)
+static int dump_alsa_info(snd_pcm_t *pcm)
 {
+  int ret;
   snd_output_t *log;
-  snd_output_stdio_attach(&log, stderr, 0);
-  snd_pcm_dump(pcm, log);
-  snd_output_close(log);
+
+  ret = snd_output_stdio_attach(&log, stderr, 0);
+  SNDCHK("snd_output_stdio_attach", ret);
+
+  ret = snd_pcm_dump(pcm, log);
+  SNDCHK("snd_pcm_dump", ret);
+
+  ret = snd_output_close(log);
+  SNDCHK("snd_output_close", ret);
+
+  return 0;
 }
 
 static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, int verbosity, unsigned int target_latency_ms)
@@ -93,7 +102,7 @@ static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, int verbosity, unsigned
   SNDCHK("snd_pcm_set_params", ret);
 
   if (verbosity > 0) {
-    dump_alsa_info(pcm);
+    return dump_alsa_info(pcm);
   }
 
   return 0;
