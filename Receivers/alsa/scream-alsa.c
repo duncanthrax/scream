@@ -31,7 +31,7 @@ static void alsa_error(const char *msg, int r)
 
 static void show_usage(const char *arg0)
 {
-  fprintf(stderr, "Usage: %s [-i interface_name_or_address] [-t alsa_output_start_threshold]\n",
+  fprintf(stderr, "Usage: %s [-v] [-i interface_name_or_address] [-t alsa_output_start_threshold]\n",
 	  arg0);
   exit(1);
 }
@@ -74,7 +74,15 @@ error_exit:
   exit(1);
 }
 
-static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, unsigned int channels, int start_threshold)
+static void dump_alsa_info(snd_pcm_t *pcm)
+{
+  snd_output_t *log;
+  snd_output_stdio_attach(&log, stderr, 0);
+  snd_pcm_dump(pcm, log);
+  snd_output_close(log);
+}
+
+static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, unsigned int channels, int start_threshold, int verbosity)
 {
   int ret;
   snd_pcm_hw_params_t *hw;
@@ -118,6 +126,10 @@ static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, unsigned int channels, 
   ret = snd_pcm_sw_params(pcm, sw);
   SNDCHK("snd_pcm_sw_params", ret);
 
+  if (verbosity > 0) {
+    dump_alsa_info(pcm);
+  }
+
   return 0;
 }
 
@@ -148,17 +160,21 @@ int main(int argc, char *argv[])
   unsigned char buf[MAX_SO_PACKETSIZE];
   in_addr_t interface = INADDR_ANY;
   int opt;
+  int verbosity = 0;
   unsigned int rate = 44100;
   int samples;
   int start_threshold = TYPICAL_SAMPLES_PER_PACKET * 8;
 
-  while ((opt = getopt(argc, argv, "i:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:t:v")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
       break;
     case 't':
       start_threshold = atoi(optarg);
+      break;
+    case 'v':
+      verbosity += 1;
       break;
     default:
       show_usage(argv[0]);
@@ -173,7 +189,7 @@ int main(int argc, char *argv[])
   ret = snd_pcm_open(&snd, device, SND_PCM_STREAM_PLAYBACK, 0);
   SNDCHK("snd_pcm_open", ret);
 
-  if (setup_alsa(snd, rate, CHANNELS, start_threshold) == -1) {
+  if (setup_alsa(snd, rate, CHANNELS, start_threshold, verbosity) == -1) {
     return -1;
   }
 

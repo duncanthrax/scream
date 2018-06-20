@@ -35,4 +35,6 @@ output start threshold (1960) with `-t`:
 $ scream-alsa -t 7840
 ```
 
+Run with `-v` to dump ALSA PCM setup information.
+
 Run with `env LIBASOUND_DEBUG=1` to debug ALSA problems.
