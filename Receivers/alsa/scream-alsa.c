@@ -99,21 +99,24 @@ static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, int verbosity, unsigned
   return 0;
 }
 
-static int write_frames(snd_pcm_t *snd, void *pcm, int num_frames)
+static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE], int total_frames)
 {
+  int i = 0;
   int ret;
-  snd_pcm_sframes_t f;
+  snd_pcm_sframes_t written;
 
-  f = snd_pcm_writei(snd, pcm, num_frames);
-  if (f < 0) {
-    ret = snd_pcm_recover(snd, f, 0);
-    SNDCHK("snd_pcm_recover", ret);
-    return 0;
+  while (i < total_frames) {
+    written = snd_pcm_writei(snd, &buf[i * BYTES_PER_SAMPLE * CHANNELS], total_frames - i);
+    if (written < 0) {
+      ret = snd_pcm_recover(snd, written, 0);
+      SNDCHK("snd_pcm_recover", ret);
+      return 0;
+    } else if (written < total_frames - i) {
+      fprintf(stderr, "Writing again after short write %ld < %d\n", written, total_frames - i);
+    }
+    i += written;
   }
-  if (f < num_frames) {
-    fprintf(stderr, "Short write %ld\n", f);
-  }
-  return num_frames;
+  return 0;
 }
 
 int main(int argc, char *argv[])
@@ -176,6 +179,6 @@ int main(int argc, char *argv[])
   for (;;) {
     n = recvfrom(sockfd, &buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
     samples = n / (BYTES_PER_SAMPLE * CHANNELS);
-    write_frames(snd, &buf, samples);
+    write_frames(snd, buf, samples);
   }
 }
