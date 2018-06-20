@@ -15,7 +15,6 @@
 #define MAX_SO_PACKETSIZE 1764
 #define BYTES_PER_SAMPLE 2
 #define CHANNELS 2
-#define TYPICAL_SAMPLES_PER_PACKET (980 / (BYTES_PER_SAMPLE * CHANNELS))
 
 #define SNDCHK(call, ret) { \
   if (ret < 0) {            \
