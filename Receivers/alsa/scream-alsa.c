@@ -82,7 +82,7 @@ static void dump_alsa_info(snd_pcm_t *pcm)
   snd_output_close(log);
 }
 
-static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, unsigned int channels, int start_threshold, int verbosity)
+static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, int start_threshold, int verbosity)
 {
   int ret;
   snd_pcm_hw_params_t *hw;
@@ -105,7 +105,7 @@ static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, unsigned int channels, 
   ret = snd_pcm_hw_params_set_rate_near(pcm, hw, &rate, 0);
   SNDCHK("snd_pcm_hw_params_set_rate_near", ret);
 
-  ret = snd_pcm_hw_params_set_channels(pcm, hw, channels);
+  ret = snd_pcm_hw_params_set_channels(pcm, hw, CHANNELS);
   SNDCHK("snd_pcm_hw_params_set_channels", ret);
 
   ret = snd_pcm_hw_params(pcm, hw);
@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
   ret = snd_pcm_open(&snd, device, SND_PCM_STREAM_PLAYBACK, 0);
   SNDCHK("snd_pcm_open", ret);
 
-  if (setup_alsa(snd, rate, CHANNELS, start_threshold, verbosity) == -1) {
+  if (setup_alsa(snd, rate, start_threshold, verbosity) == -1) {
     return -1;
   }
 
