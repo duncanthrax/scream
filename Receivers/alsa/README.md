@@ -29,11 +29,14 @@ $ scream-alsa -i eth0
 
 If you experience excessive underruns under normal operating conditions,
 lower the process niceness; if it still underruns, raise the default
-output start threshold (1960) with `-t`:
+target latency (50 ms) with `-t`:
 
 ```shell
-$ scream-alsa -t 7840
+$ scream-alsa -t 100
 ```
+
+Note that audio hardware typically has small buffers that result in a
+latency lower than the target latency.
 
 Run with `-v` to dump ALSA PCM setup information.
 
