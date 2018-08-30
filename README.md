@@ -47,7 +47,8 @@ stuff it into a local audio sink. The receiver system's kernel
 should automatically do the necessary IGMP signalling, so it's
 usually sufficient to just open a multicast listen socket and
 start reading from it. Minimal buffering (~ 4 times the UDP
-payload size) should be done to account for jitter.
+payload size) should be done to account for jitter. Receiver
+systems that have an input firewall need to open UDP port 4010.
 
 Three receivers are provided: 
 
