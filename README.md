@@ -10,6 +10,8 @@ through their own audio outputs. Two simple servers for Linux
 provided.
 
 Scream is based on Microsoft's MSVAD audio driver sample code.
+The original code is licensed under MS-PL, as are my changes
+and additions. See LICENSE for the actual license text.
 
 
 Download and install
