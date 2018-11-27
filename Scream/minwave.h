@@ -57,10 +57,6 @@ protected:
     ULONG                       m_MaxBitsPerSamplePcm;
     ULONG                       m_MinSampleRatePcm;
     ULONG                       m_MaxSampleRatePcm;
-	
-protected:
-    NTSTATUS                    ValidateFormat(IN PKSDATAFORMAT pDataFormat);
-    NTSTATUS                    ValidatePcm(IN PWAVEFORMATEX pWfx);
 
 public:
     DECLARE_STD_UNKNOWN();
@@ -73,10 +69,7 @@ public:
     NTSTATUS                    PropertyHandlerProposedFormat(IN PPCPROPERTY_REQUEST PropertyRequest);
     NTSTATUS                    PropertyHandlerCpuResources(IN PPCPROPERTY_REQUEST PropertyRequest);
     NTSTATUS                    PropertyHandlerGeneric(IN PPCPROPERTY_REQUEST PropertyRequest);
-	NTSTATUS                    PropertyHandlerPrivate(IN PPCPROPERTY_REQUEST PropertyRequest);
-	
-	//STDMETHODIMP                GetDescription(OUT PPCFILTER_DESCRIPTOR *Description);
-    //STDMETHODIMP                Init(IN PUNKNOWN UnknownAdapter, IN PRESOURCELIST ResourceList, IN PPORTWAVECYCLIC Port);
+    NTSTATUS                    PropertyHandlerPrivate(IN PPCPROPERTY_REQUEST PropertyRequest);
 
     // Friends
     friend class                CMiniportWaveCyclicStream;
@@ -86,4 +79,3 @@ public:
 typedef CMiniportWaveCyclic *PCMiniportWaveCyclic;
 
 #endif
-

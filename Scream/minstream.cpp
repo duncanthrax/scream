@@ -138,7 +138,7 @@ Return Value:
         // If this is not the capture stream, create the output file.
         if (!m_fCapture) {
             if (NT_SUCCESS(ntStatus)) {
-                ntStatus = m_SaveData.Initialize();
+                ntStatus = m_SaveData.Initialize(pWfx->nSamplesPerSec, pWfx->wBitsPerSample);
             }
         }
     }

@@ -6,11 +6,12 @@
 //=============================================================================
 // Defines
 //=============================================================================
-#define MULTICAST_TARGET	"239.255.77.77"
-#define MULTICAST_PORT		4010
-#define CHUNK_SIZE			980							// UDP payload size (44100Hz stereo, 16 bit, 1/180 sec)
-#define NUM_CHUNKS			20							// How many payloads in ring buffer
-#define BUFFER_SIZE			CHUNK_SIZE * NUM_CHUNKS		// Ring buffer size
+#define MULTICAST_TARGET    "239.255.77.77"
+#define MULTICAST_PORT      4010
+#define PCM_PAYLOAD_SIZE    1152                        // PCM payload size (divisible by 2, 3 and 4 bytes per sample * 2 channels)
+#define CHUNK_SIZE          (PCM_PAYLOAD_SIZE + 2)      // Add two bytes so we can send a small header with bytes/sample and sampling freq markers
+#define NUM_CHUNKS          80                          // How many payloads in ring buffer
+#define BUFFER_SIZE         CHUNK_SIZE * NUM_CHUNKS     // Ring buffer size
 
 //=============================================================================
 // Statics
@@ -52,11 +53,11 @@ CSaveData::CSaveData() : m_pBuffer(NULL), m_ulOffset(0), m_ulSendOffset(0), m_fW
     WSK_CLIENT_NPI   wskClientNpi;
     
     // allocate work item for this stream
-	m_pWorkItem = (PSAVEWORKER_PARAM)ExAllocatePoolWithTag(NonPagedPool, sizeof(SAVEWORKER_PARAM), MSVAD_POOLTAG);
-	if (m_pWorkItem) {
-		m_pWorkItem->WorkItem = IoAllocateWorkItem(GetDeviceObject());
-		KeInitializeEvent(&(m_pWorkItem->EventDone), NotificationEvent, TRUE);
-	}
+    m_pWorkItem = (PSAVEWORKER_PARAM)ExAllocatePoolWithTag(NonPagedPool, sizeof(SAVEWORKER_PARAM), MSVAD_POOLTAG);
+    if (m_pWorkItem) {
+        m_pWorkItem->WorkItem = IoAllocateWorkItem(GetDeviceObject());
+        KeInitializeEvent(&(m_pWorkItem->EventDone), NotificationEvent, TRUE);
+    }
 
     // get us an IRP
     m_irp = IoAllocateIrp(1, FALSE);
@@ -78,10 +79,10 @@ CSaveData::~CSaveData() {
     DPF_ENTER(("[CSaveData::~CSaveData]"));
 
     // frees the work item
-	if (m_pWorkItem->WorkItem != NULL) {
-		IoFreeWorkItem(m_pWorkItem->WorkItem);
-		m_pWorkItem->WorkItem = NULL;
-	}
+    if (m_pWorkItem->WorkItem != NULL) {
+        IoFreeWorkItem(m_pWorkItem->WorkItem);
+        m_pWorkItem->WorkItem = NULL;
+    }
 
     // close socket
     if(m_socket) {
@@ -101,9 +102,9 @@ CSaveData::~CSaveData() {
     // free irp
     IoFreeIrp(m_irp);
 
-	if (m_pBuffer) {
-		ExFreePoolWithTag(m_pBuffer, MSVAD_POOLTAG);
-		IoFreeMdl(m_pMdl);
+    if (m_pBuffer) {
+        ExFreePoolWithTag(m_pBuffer, MSVAD_POOLTAG);
+        IoFreeMdl(m_pMdl);
     }
 
 } // CSaveData
@@ -149,30 +150,34 @@ PDEVICE_OBJECT CSaveData::GetDeviceObject(void) {
 
 #pragma code_seg("PAGE")
 //=============================================================================
-NTSTATUS CSaveData::Initialize() {
+NTSTATUS CSaveData::Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample) {
     PAGED_CODE();
 
     NTSTATUS          ntStatus = STATUS_SUCCESS;
 
     DPF_ENTER(("[CSaveData::Initialize]"));
     
+    // Only multiples of 44100 and 48000 are supported
+    m_bSamplingFreqMarker  = (BYTE)((nSamplesPerSec % 44100) ? (0 + (nSamplesPerSec / 48000)) : (128 + (nSamplesPerSec / 44100)));
+    m_bBitsPerSampleMarker = (BYTE)(wBitsPerSample);
+
     // Allocate memory for data buffer.
     if (NT_SUCCESS(ntStatus)) {
         m_pBuffer = (PBYTE) ExAllocatePoolWithTag(NonPagedPool, BUFFER_SIZE, MSVAD_POOLTAG);
-		if (!m_pBuffer) {
+        if (!m_pBuffer) {
             DPF(D_TERSE, ("[Could not allocate memory for sending data]"));
             ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         }
     }
-	
+
     // Allocate MDL for the data buffer
     if (NT_SUCCESS(ntStatus)) {
-		m_pMdl = IoAllocateMdl(m_pBuffer, BUFFER_SIZE, FALSE, FALSE, NULL);
-		if (m_pMdl == NULL) {
+        m_pMdl = IoAllocateMdl(m_pBuffer, BUFFER_SIZE, FALSE, FALSE, NULL);
+        if (m_pMdl == NULL) {
             DPF(D_TERSE, ("[Failed to allocate MDL]"));
             ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         } else {
-			MmBuildMdlForNonPagedPool(m_pMdl);
+            MmBuildMdlForNonPagedPool(m_pMdl);
         }
     }
 
@@ -207,10 +212,10 @@ VOID SendDataWorkerCallback(PDEVICE_OBJECT pDeviceObject, IN  PVOID  Context) {
 void CSaveData::CreateSocket(void) {
     NTSTATUS            status;
     WSK_PROVIDER_NPI    pronpi;
-	LPCTSTR				terminator;
-	SOCKADDR_IN         locaddr4 = { AF_INET, RtlUshortByteSwap(MULTICAST_PORT), 0, 0 };
-	SOCKADDR_IN			sockaddr = { AF_INET, RtlUshortByteSwap(MULTICAST_PORT), 0, 0 };
-	
+    LPCTSTR             terminator;
+    SOCKADDR_IN         locaddr4 = { AF_INET, RtlUshortByteSwap(MULTICAST_PORT), 0, 0 };
+    SOCKADDR_IN         sockaddr = { AF_INET, RtlUshortByteSwap(MULTICAST_PORT), 0, 0 };
+    
     DPF_ENTER(("[CSaveData::CreateSocket]"));
     
     // capture WSK provider
@@ -219,9 +224,9 @@ void CSaveData::CreateSocket(void) {
         DPF(D_TERSE, ("Failed to capture provider NPI: 0x%X\n", status));
         return;
     }
-    
-	RtlIpv4StringToAddress(MULTICAST_TARGET, true, &terminator, &(sockaddr.sin_addr));
-	RtlCopyMemory(&m_sServerAddr, &sockaddr, sizeof(SOCKADDR_IN));
+
+    RtlIpv4StringToAddress(MULTICAST_TARGET, true, &terminator, &(sockaddr.sin_addr));
+    RtlCopyMemory(&m_sServerAddr, &sockaddr, sizeof(SOCKADDR_IN));
     
     // create socket
     IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
@@ -289,33 +294,33 @@ void CSaveData::CreateSocket(void) {
 void CSaveData::SendData() {
     WSK_BUF wskbuf;
 
-	ULONG storeOffset;
-	
-	if (!m_socket) {
-		CreateSocket();
-	}
+    ULONG storeOffset;
+    
+    if (!m_socket) {
+        CreateSocket();
+    }
     
     if (m_socket) {
-		while (1) {
-			// Read latest storeOffset. There might be new data.
-			storeOffset = m_ulOffset;
+        while (1) {
+            // Read latest storeOffset. There might be new data.
+            storeOffset = m_ulOffset;
 
-			// Abort if there's nothing to send. Note: When storeOffset < sendOffset, we can always send a chunk.
-			if ((storeOffset >= m_ulSendOffset) && ((storeOffset - m_ulSendOffset) < CHUNK_SIZE))
-				break;
+            // Abort if there's nothing to send. Note: When storeOffset < sendOffset, we can always send a chunk.
+            if ((storeOffset >= m_ulSendOffset) && ((storeOffset - m_ulSendOffset) < CHUNK_SIZE))
+                break;
 
-			// Send a chunk
-			wskbuf.Mdl = m_pMdl;
-			wskbuf.Length = CHUNK_SIZE;
-			wskbuf.Offset = m_ulSendOffset;
-			IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
-			IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
-			((PWSK_PROVIDER_DATAGRAM_DISPATCH)(m_socket->Dispatch))->WskSendTo(m_socket, &wskbuf, 0, (PSOCKADDR)&m_sServerAddr, 0, NULL, m_irp);
-			KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
-			DPF(D_TERSE, ("WskSendTo: %x", m_irp->IoStatus.Status));
+            // Send a chunk
+            wskbuf.Mdl = m_pMdl;
+            wskbuf.Length = CHUNK_SIZE;
+            wskbuf.Offset = m_ulSendOffset;
+            IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
+            IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
+            ((PWSK_PROVIDER_DATAGRAM_DISPATCH)(m_socket->Dispatch))->WskSendTo(m_socket, &wskbuf, 0, (PSOCKADDR)&m_sServerAddr, 0, NULL, m_irp);
+            KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
+            DPF(D_TERSE, ("WskSendTo: %x", m_irp->IoStatus.Status));
 
-			m_ulSendOffset += CHUNK_SIZE; if (m_ulSendOffset >= BUFFER_SIZE) m_ulSendOffset = 0;
-		}
+            m_ulSendOffset += CHUNK_SIZE; if (m_ulSendOffset >= BUFFER_SIZE) m_ulSendOffset = 0;
+        }
     }
 }
 
@@ -336,45 +341,59 @@ void CSaveData::WaitAllWorkItems(void) {
 void CSaveData::WriteData(IN PBYTE pBuffer, IN ULONG ulByteCount) {
     ASSERT(pBuffer);
 
-	LARGE_INTEGER timeOut = { 0 };
-	NTSTATUS ntStatus;
-	ULONG offset;
-	ULONG toWrite;
-	ULONG w;
-	
+    LARGE_INTEGER timeOut = { 0 };
+    NTSTATUS ntStatus;
+    ULONG offset;
+    ULONG toWrite;
+    ULONG w;
+    
     if (m_fWriteDisabled) {
         return;
     }
 
     DPF_ENTER(("[CSaveData::WriteData ulByteCount=%lu]", ulByteCount));
 
-	// Undersized (paranoia)
-    if( 0 == ulByteCount ) {
+    // Undersized (paranoia)
+    if (0 == ulByteCount) {
         return;
     }
 
-	// Oversized (paranoia)
-	if (ulByteCount > (CHUNK_SIZE * NUM_CHUNKS / 2)) {
-		return;
-	}
+    // Oversized (paranoia)
+    if (ulByteCount > (CHUNK_SIZE * NUM_CHUNKS / 2)) {
+        return;
+    }
 
-	// Append to ring buffer. Don't write intermediate states to m_ulOffset,
-	// but update it once at the end.
-	offset = m_ulOffset;
-	toWrite = ulByteCount;
-	while (toWrite) {
-		w = ((BUFFER_SIZE - offset) < toWrite) ? (BUFFER_SIZE - offset) : toWrite;
-		RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
-		toWrite -= w;
-		offset += w;  if (offset == BUFFER_SIZE) offset = 0;
-	}
-	m_ulOffset = offset;
+    // Append to ring buffer. Don't write intermediate states to m_ulOffset,
+    // but update it once at the end.
+    offset = m_ulOffset;
+    toWrite = ulByteCount;
+    while (toWrite > 0) {
+        w = offset % CHUNK_SIZE;
+        if (w > 0) {
+            // Fill up last chunk
+            w = (CHUNK_SIZE - w);
+            w = (toWrite < w) ? toWrite : w;
+            RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
+        }
+        else {
+            // Start a new chunk
+            m_pBuffer[offset]     = m_bSamplingFreqMarker;
+            m_pBuffer[offset + 1] = m_bBitsPerSampleMarker;
+            offset += 2;
+            w = ((BUFFER_SIZE - offset) < toWrite) ? (BUFFER_SIZE - offset) : toWrite;
+            w = (w > PCM_PAYLOAD_SIZE) ? PCM_PAYLOAD_SIZE : w;
+            RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
+        }
+        toWrite -= w;
+        offset += w;  if (offset >= BUFFER_SIZE) offset = 0;
+    }
+    m_ulOffset = offset;
 
-	// If I/O worker was done, relaunch it
-	ntStatus = KeWaitForSingleObject(&(m_pWorkItem->EventDone), Executive, KernelMode, FALSE, &timeOut);
-	if (STATUS_SUCCESS == ntStatus) {		
-			m_pWorkItem->pSaveData = this;
-			KeResetEvent(&(m_pWorkItem->EventDone));
-			IoQueueWorkItem(m_pWorkItem->WorkItem, SendDataWorkerCallback, CriticalWorkQueue, (PVOID)m_pWorkItem);
-	}
+    // If I/O worker was done, relaunch it
+    ntStatus = KeWaitForSingleObject(&(m_pWorkItem->EventDone), Executive, KernelMode, FALSE, &timeOut);
+    if (STATUS_SUCCESS == ntStatus) {		
+            m_pWorkItem->pSaveData = this;
+            KeResetEvent(&(m_pWorkItem->EventDone));
+            IoQueueWorkItem(m_pWorkItem->WorkItem, SendDataWorkerCallback, CriticalWorkQueue, (PVOID)m_pWorkItem);
+    }
 } // WriteData

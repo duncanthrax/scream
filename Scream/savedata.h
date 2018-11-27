@@ -47,43 +47,46 @@ IO_WORKITEM_ROUTINE SendDataWorkerCallback;
 
 class CSaveData {
 protected:
-	WSK_REGISTRATION			m_wskSampleRegistration;
-	PWSK_SOCKET					m_socket;
-	PIRP						m_irp;
-	KEVENT						m_syncEvent;
-	
-	PBYTE						m_pBuffer;
-	ULONG						m_ulOffset;
-	ULONG						m_ulSendOffset;
-	PMDL						m_pMdl;
-	
+    WSK_REGISTRATION            m_wskSampleRegistration;
+    PWSK_SOCKET                 m_socket;
+    PIRP                        m_irp;
+    KEVENT                      m_syncEvent;
+    
+    PBYTE                       m_pBuffer;
+    ULONG                       m_ulOffset;
+    ULONG                       m_ulSendOffset;
+    PMDL                        m_pMdl;
+    
     static PDEVICE_OBJECT       m_pDeviceObject;
     static PSAVEWORKER_PARAM    m_pWorkItem;
 
     BOOL                        m_fWriteDisabled;
-	
-	SOCKADDR_STORAGE       		m_sServerAddr;
+    
+    SOCKADDR_STORAGE            m_sServerAddr;
+
+    BYTE                        m_bSamplingFreqMarker;
+    BYTE                        m_bBitsPerSampleMarker;
 
 public:
     CSaveData();
     ~CSaveData();
 
-	NTSTATUS                    Initialize();
-	void                        Disable(BOOL fDisable);
-	
+    NTSTATUS                    Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample);
+    void                        Disable(BOOL fDisable);
+    
     static void                 DestroyWorkItems(void);
     void                        WaitAllWorkItems(void);
-	
-	static NTSTATUS             SetDeviceObject(IN PDEVICE_OBJECT DeviceObject);
-	static PDEVICE_OBJECT       GetDeviceObject(void);
+    
+    static NTSTATUS             SetDeviceObject(IN PDEVICE_OBJECT DeviceObject);
+    static PDEVICE_OBJECT       GetDeviceObject(void);
     
     void                        WriteData(IN PBYTE pBuffer, IN ULONG ulByteCount);
 
 private:
     static NTSTATUS             InitializeWorkItem(IN PDEVICE_OBJECT DeviceObject);
 
-	void                        CreateSocket(void);
-	void						SendData();
+    void                        CreateSocket(void);
+    void                        SendData();
     friend VOID                 SendDataWorkerCallback(PDEVICE_OBJECT pDeviceObject, IN PVOID Context);
 };
 typedef CSaveData *PCSaveData;

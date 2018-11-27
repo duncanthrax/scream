@@ -35,8 +35,8 @@ Abstract:
 PHYSICALCONNECTIONTABLE TopologyPhysicalConnections =
 {
     KSPIN_TOPO_WAVEOUT_SOURCE,  // TopologyIn
-	(ULONG)-1,
-	(ULONG)-1,
+    (ULONG)-1,
+    (ULONG)-1,
     KSPIN_WAVE_RENDER_SOURCE    // WaveOut
 };
 
@@ -207,8 +207,8 @@ Return Value:
 --*/
 {
     UNREFERENCED_PARAMETER(ResourceList);
-	UNREFERENCED_PARAMETER(Port_);
-	
+    UNREFERENCED_PARAMETER(Port_);
+
     PAGED_CODE();
 
     ASSERT(UnknownAdapter);
@@ -223,7 +223,7 @@ Return Value:
         m_AdapterCommon->MixerReset();
         m_FilterDescriptor = &MiniportFilterDescriptor;
         m_AdapterCommon->MixerMuxWrite(KSPIN_TOPO_MIC_SOURCE);
-	} else {
+    } else {
         // clean up AdapterCommon
         if (m_AdapterCommon) {
             m_AdapterCommon->Release();
@@ -356,7 +356,7 @@ Return Value:
 
     NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
 
-	if (PropertyRequest->Verb & KSPROPERTY_TYPE_BASICSUPPORT) {
+    if (PropertyRequest->Verb & KSPROPERTY_TYPE_BASICSUPPORT) {
         ntStatus = PropertyHandler_BasicSupport(PropertyRequest, KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT, VT_ILLEGAL);
     } else if (PropertyRequest->Verb & KSPROPERTY_TYPE_GET) {
         ntStatus = ValidatePropertyParams(PropertyRequest, sizeof(ULONG));
@@ -528,7 +528,7 @@ Return Value:
     if (PropertyRequest->Verb & KSPROPERTY_TYPE_BASICSUPPORT) {
         ntStatus = PropertyHandlerBasicSupportVolume(PropertyRequest);
     } else {
-		// volume value is a ULONG, instance is the channel number
+        // volume value is a ULONG, instance is the channel number
         ntStatus = ValidatePropertyParams(PropertyRequest, sizeof(ULONG), sizeof(LONG));
         if (NT_SUCCESS(ntStatus)) {
             lChannel  = * (PLONG (PropertyRequest->Instance));
@@ -642,7 +642,7 @@ Return Value:
     } else {
         // switch on node id
         switch( PropertyRequest->Node ) {
-			case DEV_SPECIFIC_VT_BOOL:
+            case DEV_SPECIFIC_VT_BOOL:
                 PBOOL pbDevSpecific;
 
                 ntStatus = ValidatePropertyParams(PropertyRequest, sizeof(BOOL), 0);
@@ -659,8 +659,8 @@ Return Value:
                         ntStatus = STATUS_INVALID_PARAMETER;
                     }
                 }
-				break;
-			case DEV_SPECIFIC_VT_I4:
+                break;
+            case DEV_SPECIFIC_VT_I4:
                 INT* piDevSpecific;
 
                 ntStatus = ValidatePropertyParams(PropertyRequest, sizeof(int), 0);
@@ -677,8 +677,8 @@ Return Value:
                         ntStatus = STATUS_INVALID_PARAMETER;
                     }
                 }
-				break;
-			case DEV_SPECIFIC_VT_UI4:
+                break;
+            case DEV_SPECIFIC_VT_UI4:
                 UINT* puiDevSpecific;
 
                 ntStatus = ValidatePropertyParams(PropertyRequest, sizeof(UINT), 0);
@@ -695,10 +695,10 @@ Return Value:
                         ntStatus = STATUS_INVALID_PARAMETER;
                     }
                 }
-				break;
-			default:
-				ntStatus = STATUS_INVALID_PARAMETER;
-				break;
+                break;
+            default:
+                ntStatus = STATUS_INVALID_PARAMETER;
+                break;
         }
 
         if( !NT_SUCCESS(ntStatus)) {

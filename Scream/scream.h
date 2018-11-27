@@ -57,15 +57,15 @@ DEFINE_GUIDSTRUCT("5B722BF8-F0AB-47ee-B9C8-8D61D31375A1", PID_MSVAD);
 // Pin properties.
 #define MAX_OUTPUT_STREAMS          0       // Number of capture streams.
 #define MAX_INPUT_STREAMS           1       // Number of render streams.
-#define MAX_TOTAL_STREAMS           MAX_OUTPUT_STREAMS + MAX_INPUT_STREAMS                      
+#define MAX_TOTAL_STREAMS           MAX_OUTPUT_STREAMS + MAX_INPUT_STREAMS
 
 // PCM Info
-#define MIN_CHANNELS                2       // Min Channels.
-#define MAX_CHANNELS_PCM            2       // Max Channels.
-#define MIN_BITS_PER_SAMPLE_PCM     16      // Min Bits Per Sample
-#define MAX_BITS_PER_SAMPLE_PCM     16      // Max Bits Per Sample
-#define MIN_SAMPLE_RATE             44100   // Min Sample Rate
-#define MAX_SAMPLE_RATE             44100   // Max Sample Rate
+#define MIN_CHANNELS                2        // Min Channels.
+#define MAX_CHANNELS_PCM            2        // Max Channels.
+#define MIN_BITS_PER_SAMPLE_PCM     16       // Min Bits Per Sample
+#define MAX_BITS_PER_SAMPLE_PCM     32       // Max Bits Per Sample
+#define MIN_SAMPLE_RATE             44100    // Min Sample Rate
+#define MAX_SAMPLE_RATE             192000   // Max Sample Rate
 
 #define DEV_SPECIFIC_VT_BOOL        9
 #define DEV_SPECIFIC_VT_I4          10

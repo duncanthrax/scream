@@ -227,18 +227,6 @@ static PCPROPERTY_ITEM PropertiesMux[] = {
 DEFINE_PCAUTOMATION_TABLE_PROP(AutomationMux, PropertiesMux);
 
 //=============================================================================
-static PCPROPERTY_ITEM PropertiesDevSpecific[] = {
-  {
-    &KSPROPSETID_Audio,
-    KSPROPERTY_AUDIO_DEV_SPECIFIC,
-    KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-    PropertyHandler_Topology
-  }
-};
-
-DEFINE_PCAUTOMATION_TABLE_PROP(AutomationDevSpecific, PropertiesDevSpecific);
-
-//=============================================================================
 static PCNODE_DESCRIPTOR TopologyNodes[] = {
   // KSNODE_TOPO_WAVEOUT_VOLUME
   {
@@ -312,29 +300,6 @@ static PCNODE_DESCRIPTOR TopologyNodes[] = {
     &KSAUDFNAME_RECORDING_SOURCE // Name
   },
 
-  // KSNODE_TOPO_DEV_SPECIFIC_BOOL
-  {
-    0,                      // Flags
-    &AutomationDevSpecific, // AutomationTable
-    &KSNODETYPE_DEV_SPECIFIC,// Type
-    NULL                     // Name
-  },
-
-  // KSNODE_TOPO_DEV_SPECIFIC_INT
-  {
-    0,                      // Flags
-    &AutomationDevSpecific, // AutomationTable
-    &KSNODETYPE_DEV_SPECIFIC,// Type
-    NULL                     // Name
-  },
-
-  // KSNODE_TOPO_DEV_SPECIFIC_UINT
-  {
-    0,                      // Flags
-    &AutomationDevSpecific, // AutomationTable
-    &KSNODETYPE_DEV_SPECIFIC,// Type
-    NULL                     // Name
-  },
 };
 
 C_ASSERT( KSNODE_TOPO_WAVEOUT_VOLUME  == 0 );
@@ -347,12 +312,7 @@ C_ASSERT( KSNODE_TOPO_LINEOUT_MIX     == 6 );
 C_ASSERT( KSNODE_TOPO_LINEOUT_VOLUME  == 7 );
 C_ASSERT( KSNODE_TOPO_WAVEIN_MUX      == 8 );
 
-// The structures all need to line up. Thus, node 9 is DEV_SPECIFIC which is also
-// KSNODE_TOPO_DEV_SPECIFIC_BOOL ... etc.
 C_ASSERT( KSNODE_TOPO_DEV_SPECIFIC_BOOL == DEV_SPECIFIC_VT_BOOL );
-C_ASSERT( KSNODE_TOPO_DEV_SPECIFIC_BOOL == DEV_SPECIFIC_VT_BOOL );
-C_ASSERT( KSNODE_TOPO_DEV_SPECIFIC_INT == DEV_SPECIFIC_VT_I4 );
-C_ASSERT( KSNODE_TOPO_DEV_SPECIFIC_UINT == DEV_SPECIFIC_VT_UI4 );
 
 //=============================================================================
 static PCCONNECTION_DESCRIPTOR MiniportConnections[] = {
@@ -371,10 +331,7 @@ static PCCONNECTION_DESCRIPTOR MiniportConnections[] = {
   {   PCFILTER_NODE,                KSPIN_TOPO_MIC_SOURCE,          KSNODE_TOPO_MIC_VOLUME,        1 },
   {   KSNODE_TOPO_MIC_VOLUME,       0,                              KSNODE_TOPO_WAVEIN_MUX,        1 },
 
-  {   KSNODE_TOPO_LINEOUT_MIX,      0,                              KSNODE_TOPO_DEV_SPECIFIC_BOOL, 1 },
-  {   KSNODE_TOPO_DEV_SPECIFIC_BOOL,0,                              KSNODE_TOPO_DEV_SPECIFIC_INT,  1 },
-  {   KSNODE_TOPO_DEV_SPECIFIC_INT, 0,                              KSNODE_TOPO_DEV_SPECIFIC_UINT, 1 },
-  {   KSNODE_TOPO_DEV_SPECIFIC_UINT,0,                              KSNODE_TOPO_LINEOUT_VOLUME,    1 },
+  {   KSNODE_TOPO_LINEOUT_MIX,      0,                              KSNODE_TOPO_LINEOUT_VOLUME,    1 },
   {   KSNODE_TOPO_LINEOUT_VOLUME,   0,                              PCFILTER_NODE,                 KSPIN_TOPO_LINEOUT_DEST },
 
   {   KSNODE_TOPO_WAVEIN_MUX,       0,                              PCFILTER_NODE,                 KSPIN_TOPO_WAVEIN_DEST }

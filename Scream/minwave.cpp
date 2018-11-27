@@ -47,8 +47,6 @@ Return Value:
   NT status code.
 --*/
 {
-    // PAGED_CODE();
-
     ASSERT(Unknown);
 
     STD_CREATE_BODY(CMiniportWaveCyclic, Unknown, UnknownOuter, PoolType);
@@ -65,8 +63,6 @@ Arguments:
 Return Value:
 --*/
 {
-    // PAGED_CODE();
-
     DPF_ENTER(("[CMiniportWaveCyclic::CMiniportWaveCyclic]"));
 
     // Initialize members.
@@ -226,8 +222,6 @@ Return Value:
   NT status code.
 --*/
 {
-    // PAGED_CODE();
-
     UNREFERENCED_PARAMETER(ResourceList_);
 
     ASSERT(UnknownAdapter_);
@@ -351,11 +345,6 @@ Return Value:
             DPF(D_TERSE, ("[Only one render stream supported]"));
             ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         }
-    }
-
-    // Determine if the format is valid.
-    if (NT_SUCCESS(ntStatus)) {
-        ntStatus = ValidateFormat(DataFormat);
     }
 
     // Instantiate a stream. Stream must be in
@@ -528,22 +517,20 @@ Return Value:
         } else {
             if (PropertyRequest->Verb & KSPROPERTY_TYPE_SET) {
                 KSDATAFORMAT_WAVEFORMATEX* pKsFormat = (KSDATAFORMAT_WAVEFORMATEX*)PropertyRequest->Value;
-
                 ntStatus = STATUS_NO_MATCH;
-
                 if ((pKsFormat->DataFormat.MajorFormat == KSDATAFORMAT_TYPE_AUDIO) && (pKsFormat->DataFormat.SubFormat == KSDATAFORMAT_SUBTYPE_PCM) && (pKsFormat->DataFormat.Specifier == KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)) {
                     WAVEFORMATEX* pWfx = (WAVEFORMATEX*)&pKsFormat->WaveFormatEx;
-
-                    // make sure the WAVEFORMATEX part of the format makes sense
-                    if ((pWfx->wBitsPerSample == 16) && ((pWfx->nSamplesPerSec == 44100) || (pWfx->nSamplesPerSec == 48000)) && (pWfx->nBlockAlign == (pWfx->nChannels * 2)) && (pWfx->nAvgBytesPerSec == (pWfx->nSamplesPerSec * pWfx->nBlockAlign))) {
+                    // We only support 2 channels at freq >= 44100, sampling size >= 16bits
+                    if ( ((pWfx->wBitsPerSample == 16) || (pWfx->wBitsPerSample == 24) || (pWfx->wBitsPerSample == 32)) &&
+                         ((pWfx->nSamplesPerSec == 44100) || (pWfx->nSamplesPerSec == 48000) || (pWfx->nSamplesPerSec == 96000) || (pWfx->nSamplesPerSec == 192000)) ) {
                         if ((pWfx->wFormatTag == WAVE_FORMAT_PCM) && (pWfx->cbSize == 0)) {
                             if (pWfx->nChannels == 2) {
                                 ntStatus = STATUS_SUCCESS;
                             }
-                        } else if ((pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) && (pWfx->cbSize == CB_EXTENSIBLE)) {
+                        }
+                        else if ((pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) && (pWfx->cbSize == CB_EXTENSIBLE)) {
                             WAVEFORMATEXTENSIBLE* pWfxT = (WAVEFORMATEXTENSIBLE*)pWfx;
-
-                            if (((pWfx->nChannels == 2) && (pWfxT->dwChannelMask == KSAUDIO_SPEAKER_STEREO)) || ((pWfx->nChannels == 6) && (pWfxT->dwChannelMask == KSAUDIO_SPEAKER_5POINT1_SURROUND)) || ((pWfx->nChannels == 8) && (pWfxT->dwChannelMask == KSAUDIO_SPEAKER_7POINT1_SURROUND))) {
+                            if ((pWfx->nChannels == 2) && (pWfxT->dwChannelMask == KSAUDIO_SPEAKER_STEREO)) {
                                 ntStatus = STATUS_SUCCESS;
                             }
                         }
@@ -628,99 +615,6 @@ Return Value:
 
     return ntStatus;
 } // PropertyHandlerGeneric
-
-
-//=============================================================================
-NTSTATUS CMiniportWaveCyclic::ValidateFormat(
-    IN  PKSDATAFORMAT           pDataFormat
-)
-/*++
-Routine Description:
-  Validates that the given dataformat is valid.
-  This version of the driver only supports PCM.
-
-Arguments:
-  pDataFormat - The dataformat for validation.
-
-Return Value:
-  NT status code.
---*/
-{
-    // PAGED_CODE();
-
-    ASSERT(pDataFormat);
-
-    DPF_ENTER(("[CMiniportWaveCyclic::ValidateFormat]"));
-
-    NTSTATUS      ntStatus = STATUS_INVALID_PARAMETER;
-    PWAVEFORMATEX pwfx;
-
-    pwfx = GetWaveFormatEx(pDataFormat);
-    if (pwfx) {
-        if (IS_VALID_WAVEFORMATEX_GUID(&pDataFormat->SubFormat)) {
-            USHORT wfxID = EXTRACT_WAVEFORMATEX_ID(&pDataFormat->SubFormat);
-
-            switch (wfxID) {
-                case WAVE_FORMAT_PCM:
-                {
-                    switch (pwfx->wFormatTag) {
-                        case WAVE_FORMAT_PCM:
-                        {
-                            ntStatus = ValidatePcm(pwfx);
-                            break;
-                        }
-                    }
-                    break;
-                }
-
-                default:
-                    DPF(D_TERSE, ("Invalid format EXTRACT_WAVEFORMATEX_ID!"));
-                    break;
-            }
-        } else {
-            DPF(D_TERSE, ("Invalid pDataFormat->SubFormat!") );
-        }
-    }
-
-    return ntStatus;
-} // ValidateFormat
-
-//-----------------------------------------------------------------------------
-NTSTATUS CMiniportWaveCyclic::ValidatePcm(
-    IN  PWAVEFORMATEX           pWfx
-)
-/*++
-Routine Description:
-  Given a waveformatex and format size validates that the format is in device
-  datarange.
-
-Arguments:
-  pWfx - wave format structure.
-
-Return Value:
-  NT status code.
---*/
-{
-    // PAGED_CODE();
-
-    DPF_ENTER(("[CMiniportWaveCyclic::ValidatePcm]"));
-
-    if(pWfx                                               &&
-      (pWfx->cbSize == 0)                                 &&
-      (pWfx->nChannels >= m_MinChannels)                  &&
-      (pWfx->nChannels <= m_MaxChannelsPcm)               &&
-      (pWfx->nSamplesPerSec >= m_MinSampleRatePcm)        &&
-      (pWfx->nSamplesPerSec <= m_MaxSampleRatePcm)        &&
-      (pWfx->wBitsPerSample >= m_MinBitsPerSamplePcm)     &&
-      (pWfx->wBitsPerSample <= m_MaxBitsPerSamplePcm)) {
-        return STATUS_SUCCESS;
-    }
-
-    DPF(D_TERSE, ("Invalid PCM format"));
-
-    return STATUS_INVALID_PARAMETER;
-} // ValidatePcm
-
 
 //=============================================================================
 void TimerNotify(
