@@ -17,21 +17,6 @@ Abstract:
 #include "toptable.h"
 
 
-/*********************************************************************
-* Topology/Wave bridge connection                                    *
-*                                                                    *
-*              +------+    +------+                                  *
-*              | Wave |    | Topo |                                  *
-*              |      |    |      |                                  *
-*  Capture <---|0    1|<===|4    1|<--- Synth                        *
-*              |      |    |      |                                  *
-*   Render --->|2    3|===>|0     |                                  *
-*              +------+    |      |                                  *
-*                          |     2|<--- Mic                          *
-*                          |      |                                  *
-*                          |     3|---> Line Out                     *
-*                          +------+                                  *
-*********************************************************************/
 PHYSICALCONNECTIONTABLE TopologyPhysicalConnections =
 {
     KSPIN_TOPO_WAVEOUT_SOURCE,  // TopologyIn
@@ -222,7 +207,6 @@ Return Value:
     if (NT_SUCCESS(ntStatus)) {
         m_AdapterCommon->MixerReset();
         m_FilterDescriptor = &MiniportFilterDescriptor;
-        m_AdapterCommon->MixerMuxWrite(KSPIN_TOPO_MIC_SOURCE);
     } else {
         // clean up AdapterCommon
         if (m_AdapterCommon) {
