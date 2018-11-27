@@ -11,14 +11,27 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define MULTICAST_TARGET "239.255.77.77"
-#define MULTICAST_PORT 4010
+#define DEFAULT_MULTICAST_GROUP "239.255.77.77"
+#define DEFAULT_PORT 4010
 #define MAX_SO_PACKETSIZE 1154
 
 static void show_usage(const char *arg0)
 {
-  fprintf(stderr, "Usage: %s [-i interface_name_or_address]\n",
-	  arg0);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Usage: %s [-u] [-p <port>] [-i <iface>] [-g <group>]\n", arg0);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "         All command line options are optional. Default is to use\n");
+  fprintf(stderr, "         multicast with group address 239.255.77.77, port 4010.\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "         -u          : Use unicast instead of multicast.\n");
+  fprintf(stderr, "         -p <port>   : Use <port> instead of default port 4010.\n");
+  fprintf(stderr, "                       Applies to both multicast and unicast.\n");
+  fprintf(stderr, "         -i <iface>  : Use local interface <iface>. Either the IP\n");
+  fprintf(stderr, "                       or the interface name can be specified. In\n");
+  fprintf(stderr, "                       multicast mode, uses this interface for IGMP.\n");
+  fprintf(stderr, "                       In unicast, binds to this interface only.\n");
+  fprintf(stderr, "         -g <group>  : Multicast group address. Multicast mode only.\n");
+  fprintf(stderr, "\n");
   exit(1);
 }
 
@@ -67,15 +80,30 @@ int main(int argc, char*argv[]) {
   struct ip_mreq imreq;
   pa_simple *s;
   pa_sample_spec ss;
-  unsigned char buf[MAX_SO_PACKETSIZE];
-  in_addr_t interface = INADDR_ANY;
   int opt;
   unsigned char cur_sample_rate = 0, cur_sample_size = 0;
+  unsigned char buf[MAX_SO_PACKETSIZE];
+  
+  // Command line options
+  int use_unicast       = 0;
+  char *multicast_group = NULL;
+  in_addr_t interface   = INADDR_ANY;
+  uint16_t port         = DEFAULT_PORT;
 
-  while ((opt = getopt(argc, argv, "i:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:uh")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
+      break;
+    case 'p':
+      port = atoi(optarg);
+      if (!port) show_usage(argv[0]);
+      break;
+    case 'u':
+      use_unicast = 1;
+      break;
+    case 'g':
+      multicast_group = strdup(optarg);
       break;
     default:
       show_usage(argv[0]);
@@ -86,6 +114,7 @@ int main(int argc, char*argv[]) {
     show_usage(argv[0]);
   }
 
+  // Start with base default format, will switch to actual format later
   ss.format = PA_SAMPLE_S16LE;
   ss.rate = 44100;
   ss.channels = 2;
@@ -108,15 +137,17 @@ int main(int argc, char*argv[]) {
 
   memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(MULTICAST_PORT);
+  servaddr.sin_addr.s_addr = use_unicast ? interface : htonl(INADDR_ANY);
+  servaddr.sin_port = htons(port);
   bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-  imreq.imr_multiaddr.s_addr = inet_addr(MULTICAST_TARGET);
-  imreq.imr_interface.s_addr = interface;
+  if (!use_unicast) {
+    imreq.imr_multiaddr.s_addr = inet_addr(multicast_group ? multicast_group : DEFAULT_MULTICAST_GROUP);
+    imreq.imr_interface.s_addr = interface;
 
-  setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, 
-            (const void *)&imreq, sizeof(struct ip_mreq));
+    setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, 
+              (const void *)&imreq, sizeof(struct ip_mreq));
+  }
 
   for (;;) {
     n = recvfrom(sockfd, buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
