@@ -188,7 +188,7 @@ int main(int argc, char*argv[]) {
           }
         }
       }
-
+      if (!ss.rate) continue;
       if (pa_simple_write(s, &buf[2], n - 2, &error) < 0) {
         printf("pa_simple_write() failed: %s\n", pa_strerror(error));
         goto BAIL;
