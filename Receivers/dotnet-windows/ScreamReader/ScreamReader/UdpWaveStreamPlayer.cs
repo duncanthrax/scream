@@ -20,11 +20,6 @@ namespace ScreamReader
         /// The port scream is broadcasting on.
         /// </summary>
         public static readonly int ScreamMulticastPort = 4010;
-
-        /// <summary>
-        /// Default <see cref="waveFormat"/> is 44.1 kHz, 16 bits, stereo.
-        /// </summary>
-        public static readonly WaveFormat ScreamWaveFormat = new WaveFormat();
         #endregion
 
         #region instance variables
@@ -37,12 +32,7 @@ namespace ScreamReader
         /// The port to listen to.
         /// </summary>
         protected int multicastPort { get; set; }
-
-        /// <summary>
-        /// The used <see cref="waveFormat"/>.
-        /// </summary>
-        protected WaveFormat waveFormat { get; set; }
-
+        
         private Semaphore startLock;
 
         private Semaphore shutdownLock;
@@ -81,7 +71,7 @@ namespace ScreamReader
         /// Default c'tor that supports Scream's default settings.
         /// </summary>
         public UdpWaveStreamPlayer()
-            : this(ScreamMulticastAddress, ScreamMulticastPort, ScreamWaveFormat)
+            : this(ScreamMulticastAddress, ScreamMulticastPort)
         {
         }
 
@@ -90,26 +80,18 @@ namespace ScreamReader
         /// </summary>
         /// <param name="multicastAddress"></param>
         /// <param name="multicastPort"></param>
-        /// <param name="waveFormat"></param>
-        public UdpWaveStreamPlayer(IPAddress multicastAddress, int multicastPort, WaveFormat waveFormat)
+        public UdpWaveStreamPlayer(IPAddress multicastAddress, int multicastPort)
         {
             this.multicastAddress = multicastAddress;
             this.multicastPort = multicastPort;
-            this.waveFormat = waveFormat;
 
             this.startLock = new Semaphore(1, 1);
             this.shutdownLock = new Semaphore(0, 1);
-            this.output = new WaveOut()
-            {
-                DesiredLatency = 80
-            };
-
+            
             this.udpClient = new UdpClient
             {
                 ExclusiveAddressUse = false
             };
-
-            this.Volume = 100;
         }
 
         /// <summary>
@@ -123,17 +105,21 @@ namespace ScreamReader
 
             Task.Factory.StartNew(() =>
             {
+                var currentRate = 129;
+                var currentWidth = 16;
                 var localEp = new IPEndPoint(IPAddress.Any, this.multicastPort);
 
                 this.udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 this.udpClient.Client.Bind(localEp);
                 this.udpClient.JoinMulticastGroup(this.multicastAddress);
 
+                var rsws = new BufferedWaveProvider(new WaveFormat(44100, 16, 2)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
 
-                var rsws = new BufferedWaveProvider(new WaveFormat())
+                this.output = new WaveOut()
                 {
-                    BufferDuration = TimeSpan.FromMilliseconds(500)
+                    DesiredLatency = 200
                 };
+                this.Volume = 100;
 
                 this.output.Init(rsws);
                 this.output.Play();
@@ -145,15 +131,31 @@ namespace ScreamReader
                         try
                         {
                             Byte[] data = this.udpClient.Receive(ref localEp);
-                            rsws.AddSamples(data, 0, data.Length);
+                            
+                            if (data[0] != currentRate || data[1] != currentWidth)
+                            {
+                                currentRate = data[0];
+                                currentWidth = data[1];
+                                this.output.Stop();
+                                var rate = ((currentRate >= 128) ? 44100 : 48000) * (currentRate % 128);
+                                rsws = new BufferedWaveProvider(new WaveFormat(rate, currentWidth, 2)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
+                                this.output = new WaveOut()
+                                {
+                                    DesiredLatency = 200
+                                };
+                                this.Volume = 100;
+                                this.output.Init(rsws);
+                                this.output.Play();
+                            }
+                            rsws.AddSamples(data, 2, data.Length - 2);
                         } catch (SocketException) { } // Usually when interrupted
                     }
                 }, this.cancellationTokenSource.Token);
 
                 this.shutdownLock.WaitOne();
 
-                this.udpClient.Close();
                 this.output.Stop();
+                this.udpClient.Close();
             }, this.cancellationTokenSource.Token);
         }
 
@@ -177,7 +179,6 @@ namespace ScreamReader
         {
             if (disposing)
             {
-                this.udpClient.Dispose();
                 this.startLock.Dispose();
                 this.shutdownLock.Dispose();
             }
