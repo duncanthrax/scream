@@ -213,8 +213,8 @@ void CSaveData::CreateSocket(void) {
     NTSTATUS            status;
     WSK_PROVIDER_NPI    pronpi;
     LPCTSTR             terminator;
-    SOCKADDR_IN         locaddr4 = { AF_INET, RtlUshortByteSwap(MULTICAST_PORT), 0, 0 };
-    SOCKADDR_IN         sockaddr = { AF_INET, RtlUshortByteSwap(MULTICAST_PORT), 0, 0 };
+    SOCKADDR_IN         locaddr4 = { AF_INET, RtlUshortByteSwap((USHORT)g_UnicastPort), 0, 0 };
+    SOCKADDR_IN         sockaddr = { AF_INET, RtlUshortByteSwap((USHORT)g_UnicastPort), 0, 0 };
     
     DPF_ENTER(("[CSaveData::CreateSocket]"));
     
@@ -225,18 +225,7 @@ void CSaveData::CreateSocket(void) {
         return;
     }
 
-    if (g_UnicastPort) {
-        locaddr4 = { AF_INET, RtlUshortByteSwap(g_UnicastPort), 0, 0 };
-        sockaddr = { AF_INET, RtlUshortByteSwap(g_UnicastPort), 0, 0 };
-    }
-
-    if (g_UnicastIPv4) {
-        RtlIpv4StringToAddress(g_UnicastIPv4, true, &terminator, &(sockaddr.sin_addr));
-    }
-    else {
-        RtlIpv4StringToAddress(MULTICAST_TARGET, true, &terminator, &(sockaddr.sin_addr));
-    }
-    
+    RtlIpv4StringToAddress(g_UnicastIPv4, true, &terminator, &(sockaddr.sin_addr));
     RtlCopyMemory(&m_sServerAddr, &sockaddr, sizeof(SOCKADDR_IN));
     
     // create socket

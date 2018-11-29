@@ -30,8 +30,8 @@ Abstract:
 NTSTATUS CreateMiniportWaveCyclicMSVAD(OUT PUNKNOWN *, IN  REFCLSID, IN  PUNKNOWN, IN  POOL_TYPE);
 NTSTATUS CreateMiniportTopologyMSVAD(OUT PUNKNOWN *, IN  REFCLSID, IN  PUNKNOWN, IN  POOL_TYPE);
 
-PCHAR g_UnicastIPv4 = NULL;
-DWORD g_UnicastPort = 0;
+PCHAR g_UnicastIPv4;
+DWORD g_UnicastPort;
 
 //-----------------------------------------------------------------------------
 // Referenced forward.
@@ -72,15 +72,16 @@ Returns:
 {
     NTSTATUS            ntStatus;
     UNICODE_STRING      parametersPath;
-    PUNICODE_STRING     pusString = (PUNICODE_STRING)ExAllocatePoolWithTag(NonPagedPool, sizeof(UNICODE_STRING), MSVAD_POOLTAG);
 
-    RtlZeroMemory(pusString, sizeof(UNICODE_STRING));
+    UNICODE_STRING      unicastIPv4;
+    DWORD               unicastPort = 0;
+
+    RtlZeroMemory(&unicastIPv4, sizeof(UNICODE_STRING));
 
     RTL_QUERY_REGISTRY_TABLE paramTable[] = {
-        // QR     Flags                                                     Name            EntryContext     DefaultType                                                   DefaultData     DefaultLength
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"UnicastIPv4", pusString,      (REG_SZ    << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_SZ,    pusString,      sizeof(UNICODE_STRING)},
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_TYPECHECK, L"UnicastPort", &g_UnicastPort, (REG_DWORD << RTL_QUERY_REGISTRY_TYPECHECK_SHIFT) | REG_DWORD, &g_UnicastPort, sizeof(ULONG)},
-        { NULL,   0,                                                        NULL,           NULL,           0,                                                             NULL,           0 }
+        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastIPv4", &unicastIPv4, REG_NONE,  NULL, 0 },
+        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastPort", &unicastPort, REG_NONE,  NULL, 0 },
+        { NULL,   0,                         NULL,           NULL,         0,         NULL, 0 }
     };
 
     DPF(D_TERSE, ("[GetRegistrySettings]"));
@@ -111,37 +112,52 @@ Returns:
         NULL
     );
 
-    if (NT_SUCCESS(ntStatus))
-    {
-        if (pusString->Length && RtlUnicodeStringToAnsiSize(pusString)) {
-            g_UnicastIPv4 = (PCHAR)(ExAllocatePoolWithTag(NonPagedPool, RtlUnicodeStringToAnsiSize(pusString) + 1, MSVAD_POOLTAG));
-            if (g_UnicastIPv4) {
-                ANSI_STRING asString;
-                asString.Length = 0;
-                asString.MaximumLength = (USHORT)RtlUnicodeStringToAnsiSize(pusString);
-                asString.Buffer = g_UnicastIPv4;
-                ntStatus = RtlUnicodeStringToAnsiString(&asString, pusString, false);
-                if (NT_SUCCESS(ntStatus)) {
-                    // Halleluja
-                    g_UnicastIPv4[asString.Length] = '\0';
-                }
-                else {
-                    ExFreePool(g_UnicastIPv4);
-                    g_UnicastIPv4 = NULL;
-                }
-            }
-            else {
-                ntStatus = STATUS_INSUFFICIENT_RESOURCES;
-            }
-        }
-    }
-    else
+    if (!NT_SUCCESS(ntStatus))
     {
         DPF(D_VERBOSE, ("RtlQueryRegistryValues failed, using default values, 0x%x", ntStatus));
         // Don't return error because we will operate with default values.
     }
 
-    RtlFreeUnicodeString(pusString);
+    if (unicastPort > 0) {
+        g_UnicastPort = unicastPort;
+    }
+    else {
+        g_UnicastPort = 4010;
+    }
+
+    if ((unicastIPv4.Length > 0) && RtlUnicodeStringToAnsiSize(&unicastIPv4)) {
+        g_UnicastIPv4 = (PCHAR)(ExAllocatePoolWithTag(NonPagedPool, RtlUnicodeStringToAnsiSize(&unicastIPv4) + 1, MSVAD_POOLTAG));
+        if (g_UnicastIPv4) {
+            ANSI_STRING asString;
+            asString.Length = 0;
+            asString.MaximumLength = (USHORT)RtlUnicodeStringToAnsiSize(&unicastIPv4);
+            asString.Buffer = g_UnicastIPv4;
+            ntStatus = RtlUnicodeStringToAnsiString(&asString, &unicastIPv4, false);
+            if (NT_SUCCESS(ntStatus)) {
+                // Halleluja
+                g_UnicastIPv4[asString.Length] = '\0';
+            }
+            else {
+                ExFreePool(g_UnicastIPv4);
+                g_UnicastIPv4 = NULL;
+            }
+        }
+        else {
+            ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+        }
+    }
+
+    if (g_UnicastIPv4 == NULL) {
+        g_UnicastIPv4 = (PCHAR)(ExAllocatePoolWithTag(NonPagedPool, 16, MSVAD_POOLTAG));
+        if (g_UnicastIPv4) {
+            RtlCopyMemory(g_UnicastIPv4, "239.255.77.77", 13);
+            g_UnicastIPv4[13] = '\0';
+        }
+        else {
+            ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+        }
+    }
+
     ExFreePool(parametersPath.Buffer);
 
     return STATUS_SUCCESS;
