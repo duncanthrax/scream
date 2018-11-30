@@ -12,8 +12,10 @@
 
 #define MULTICAST_TARGET "239.255.77.77"
 #define MULTICAST_PORT 4010
-#define MAX_SO_PACKETSIZE 1764
+
 #define BYTES_PER_SAMPLE 2
+
+#define MAX_SO_PACKETSIZE 1154
 #define CHANNELS 2
 
 #define SNDCHK(call, ret) { \
@@ -90,31 +92,43 @@ static int dump_alsa_info(snd_pcm_t *pcm)
   return 0;
 }
 
-static int setup_alsa(snd_pcm_t *pcm, unsigned int rate, int verbosity, unsigned int target_latency_ms)
+static int setup_alsa(snd_pcm_t **psnd, snd_pcm_format_t format, unsigned int rate, int verbosity, unsigned int target_latency_ms)
 {
   int ret;
+  const char *device = "default";
   int soft_resample = 1;
   unsigned int latency = target_latency_ms * 1000;
 
-  ret = snd_pcm_set_params(pcm, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED,
+  ret = snd_pcm_open(psnd, device, SND_PCM_STREAM_PLAYBACK, 0);
+  SNDCHK("snd_pcm_open", ret);
+
+  ret = snd_pcm_set_params(*psnd, format, SND_PCM_ACCESS_RW_INTERLEAVED,
                            CHANNELS, rate, soft_resample, latency);
   SNDCHK("snd_pcm_set_params", ret);
 
   if (verbosity > 0) {
-    return dump_alsa_info(pcm);
+    return dump_alsa_info(*psnd);
   }
 
   return 0;
 }
 
-static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE], int total_frames)
+static int close_alsa(snd_pcm_t *snd) {
+  int ret;
+  if (!snd) return 0;
+  ret = snd_pcm_close(snd);
+  SNDCHK("snd_pcm_close", ret);
+  return 0;
+}
+
+static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE], int total_frames, int bytes_per_sample)
 {
   int i = 0;
   int ret;
   snd_pcm_sframes_t written;
 
   while (i < total_frames) {
-    written = snd_pcm_writei(snd, &buf[i * BYTES_PER_SAMPLE * CHANNELS], total_frames - i);
+    written = snd_pcm_writei(snd, &buf[i * bytes_per_sample * CHANNELS], total_frames - i);
     if (written < 0) {
       ret = snd_pcm_recover(snd, written, 0);
       SNDCHK("snd_pcm_recover", ret);
@@ -129,7 +143,7 @@ static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE], in
 
 int main(int argc, char *argv[])
 {
-  int sockfd, ret;
+  int sockfd;
   ssize_t n;
   struct sockaddr_in servaddr;
   struct ip_mreq imreq;
@@ -138,9 +152,13 @@ int main(int argc, char *argv[])
   in_addr_t interface = INADDR_ANY;
   int opt;
   int verbosity = 0;
-  unsigned int rate = 44100;
   int samples;
+  snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
+  unsigned int bytes_per_sample = 2;
+  unsigned int rate = 44100;
   int target_latency_ms = 50;
+  unsigned char cur_server_rate = 0;
+  unsigned char cur_server_size = 0;
 
   while ((opt = getopt(argc, argv, "i:t:v")) != -1) {
     switch (opt) {
@@ -162,13 +180,9 @@ int main(int argc, char *argv[])
     show_usage(argv[0]);
   }
 
-  const char *device = "default";
-  ret = snd_pcm_open(&snd, device, SND_PCM_STREAM_PLAYBACK, 0);
-  SNDCHK("snd_pcm_open", ret);
-
-  if (setup_alsa(snd, rate, verbosity, target_latency_ms) == -1) {
-    return -1;
-  }
+  // const char *device = "default";
+  // ret = snd_pcm_open(&snd, device, SND_PCM_STREAM_PLAYBACK, 0);
+  // SNDCHK("snd_pcm_open", ret);
 
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -184,9 +198,44 @@ int main(int argc, char *argv[])
   setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, 
              (const void *)&imreq, sizeof(struct ip_mreq));
 
+  if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms) == -1) {
+    return -1;
+  }
+
   for (;;) {
     n = recvfrom(sockfd, &buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
-    samples = n / (BYTES_PER_SAMPLE * CHANNELS);
-    write_frames(snd, buf, samples);
+    if (n < 2) continue;
+    
+    // Change rate/size?
+    if (cur_server_rate != buf[0] || cur_server_size != buf[1]) {
+        cur_server_rate = buf[0];
+        cur_server_size = buf[1];
+
+        rate = ((cur_server_rate >= 128) ? 44100 : 48000) * (cur_server_rate % 128);
+        switch (cur_server_size) {
+          case 16: format = SND_PCM_FORMAT_S16_LE; bytes_per_sample = 2; break;
+          case 24: format = SND_PCM_FORMAT_S24_LE; bytes_per_sample = 3; break;
+          case 32: format = SND_PCM_FORMAT_S32_LE; bytes_per_sample = 4; break;
+          default:
+            printf("Unsupported sample size %hhu, not playing until next format switch.\n", cur_server_size);
+            rate = 0;
+        }
+
+        if (rate) {
+          close_alsa(snd);
+          if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms) == -1) {
+            printf("Unable to set up ALSA with sample rate %u and sample size %hhu, not playing until next format switch.\n", rate, cur_server_size);
+            snd = NULL;
+            rate = 0;
+          }
+          else {
+            printf("Switched format to sample rate %u and sample size %hhu.\n", rate, cur_server_size);
+          }
+        }
+    }
+    if (!rate) continue;
+
+    samples = (n - 2) / (bytes_per_sample * CHANNELS);
+    write_frames(snd, buf, samples, bytes_per_sample);
   }
 }
