@@ -82,14 +82,13 @@ To satisfy your audiophile feelings, or to reduce unneccesary
 resampling, you might want to set a higher sampling rate and/or
 sampling width. You can do that on the driver "Advanced" property
 page:
-
+![](doc/sampling-rate.png)
 
 Using unicast
 -------------------------------------------------------------
 Tweak the registry in the manner depicted in this screenshot,
 then reboot:
-
-
+![](doc/registry.png)
 
 Building
 -------------------------------------------------------------
