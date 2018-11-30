@@ -86,8 +86,8 @@ page:
 
 Using unicast
 -------------------------------------------------------------
-Tweak the registry in the manner depicted in this screenshot,
-then reboot:
+Tweak the registry in the manner depicted in this screenshot
+(you will have to create the "Options" key), then reboot:
 ![](doc/registry.png)
 
 Building
