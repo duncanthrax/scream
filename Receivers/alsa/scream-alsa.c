@@ -121,7 +121,7 @@ static int close_alsa(snd_pcm_t *snd) {
   return 0;
 }
 
-static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE], int total_frames, int bytes_per_sample)
+static int write_frames(snd_pcm_t *snd, unsigned char buf[MAX_SO_PACKETSIZE-2], int total_frames, int bytes_per_sample)
 {
   int i = 0;
   int ret;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
         rate = ((cur_server_rate >= 128) ? 44100 : 48000) * (cur_server_rate % 128);
         switch (cur_server_size) {
           case 16: format = SND_PCM_FORMAT_S16_LE; bytes_per_sample = 2; break;
-          case 24: format = SND_PCM_FORMAT_S24_LE; bytes_per_sample = 3; break;
+          case 24: format = SND_PCM_FORMAT_S24_3LE; bytes_per_sample = 3; break;
           case 32: format = SND_PCM_FORMAT_S32_LE; bytes_per_sample = 4; break;
           default:
             printf("Unsupported sample size %hhu, not playing until next format switch.\n", cur_server_size);
@@ -236,6 +236,6 @@ int main(int argc, char *argv[])
     if (!rate) continue;
 
     samples = (n - 2) / (bytes_per_sample * CHANNELS);
-    write_frames(snd, buf, samples, bytes_per_sample);
+    write_frames(snd, &buf[2], samples, bytes_per_sample);
   }
 }
