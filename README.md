@@ -78,7 +78,7 @@ payload size) should be done to account for jitter.
 
 Setting the sampling rate
 -------------------------------------------------------------
-To satisfy your audiophile feelings, or to reduce unneccesary
+To satisfy your audiophile feelings, or to reduce unnecessary
 resampling, you might want to set a higher sampling rate and/or
 sampling width. You can do that on the driver "Advanced" property
 page:
