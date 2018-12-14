@@ -56,8 +56,8 @@ see below). Delay is minimal, since all processing is done
 on kernel level. There is no userspace portion.
 
 The multicast target address and port is
-"239.255.77.77:4010". The audio is a raw PCM, always with two
-channels (stereo). The the default sampling rate and size can be set
+"239.255.77.77:4010". The audio is a raw PCM stream, always with two
+channels (stereo). The default sampling rate and size can be set
 as the "Default format" in the driver "Advanced" property page.
 Data is transferred in UDP frames with a payload size of max.
 1154 bytes, consisting of 2 bytes header and 1152 bytes PCM data.
@@ -82,13 +82,16 @@ To satisfy your audiophile feelings, or to reduce unnecessary
 resampling, you might want to set a higher sampling rate and/or
 sampling width. You can do that on the driver "Advanced" property
 page:
-![](doc/sampling-rate.png)
+
+<img src="doc/sampling-rate.png" width="700"/>
+
 
 Using unicast
 -------------------------------------------------------------
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
-![](doc/registry.png)
+
+<img src="doc/registry.png"/>
 
 Building
 -------------------------------------------------------------
