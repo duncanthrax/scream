@@ -76,7 +76,7 @@ start reading from it. Minimal buffering (~ 4 times the UDP
 payload size) should be done to account for jitter. 
 
 
-Setting the sampling rate
+Setting the sampling rate (optional)
 -------------------------------------------------------------
 To satisfy your audiophile feelings, or to reduce unnecessary
 resampling, you might want to set a higher sampling rate and/or
@@ -86,7 +86,7 @@ page:
 <img src="doc/sampling-rate.png" width="700"/>
 
 
-Using unicast
+Using unicast instead of multicast (optional)
 -------------------------------------------------------------
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
