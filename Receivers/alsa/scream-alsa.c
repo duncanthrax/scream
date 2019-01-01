@@ -31,7 +31,7 @@ static void alsa_error(const char *msg, int r)
 static void show_usage(const char *arg0)
 {
   fprintf(stderr, "\n");
-  fprintf(stderr, "Usage: %s [-u] [-v] [-p <port>] [-i <iface>] [-g <group>] [-t <target_latency_ms>]\n", arg0);
+  fprintf(stderr, "Usage: %s [-u] [-v] [-p <port>] [-i <iface>] [-g <group>] [-t <target_latency_ms>] [-o <output_sound_device>]\n", arg0);
   fprintf(stderr, "\n");
   fprintf(stderr, "         All command line options are optional. Default is to use\n");
   fprintf(stderr, "         multicast with group address 239.255.77.77, port 4010.\n");
@@ -46,6 +46,7 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "                       In unicast, binds to this interface only.\n");
   fprintf(stderr, "         -g <group>  : Multicast group address. Multicast mode only.\n");
   fprintf(stderr, "         -t <latency>: Target latency in milliseconds. Defaults to 50ms.\n");
+  fprintf(stderr, "         -o <device>: Set output soundcard. Default is \"default\".\n");
   fprintf(stderr, "\n");
   exit(1);
 }
@@ -105,14 +106,13 @@ static int dump_alsa_info(snd_pcm_t *pcm)
   return 0;
 }
 
-static int setup_alsa(snd_pcm_t **psnd, snd_pcm_format_t format, unsigned int rate, int verbosity, unsigned int target_latency_ms)
+static int setup_alsa(snd_pcm_t **psnd, snd_pcm_format_t format, unsigned int rate, int verbosity, unsigned int target_latency_ms, const char *output_device)
 {
   int ret;
-  const char *device = "default";
   int soft_resample = 1;
   unsigned int latency = target_latency_ms * 1000;
 
-  ret = snd_pcm_open(psnd, device, SND_PCM_STREAM_PLAYBACK, 0);
+  ret = snd_pcm_open(psnd, output_device, SND_PCM_STREAM_PLAYBACK, 0);
   SNDCHK("snd_pcm_open", ret);
 
   ret = snd_pcm_set_params(*psnd, format, SND_PCM_ACCESS_RW_INTERLEAVED,
@@ -177,9 +177,10 @@ int main(int argc, char *argv[])
   in_addr_t interface   = INADDR_ANY;
   uint16_t port         = DEFAULT_PORT;
   int target_latency_ms = 50;
+  char *output_device ="default";
 
 
-  while ((opt = getopt(argc, argv, "i:g:p:t:vuh")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:t:vuho:")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
@@ -199,6 +200,9 @@ int main(int argc, char *argv[])
       break;
     case 'v':
       verbosity += 1;
+      break;
+    case 'o':
+      output_device = strdup(optarg);
       break;
     default:
       show_usage(argv[0]);
@@ -225,7 +229,7 @@ int main(int argc, char *argv[])
                (const void *)&imreq, sizeof(struct ip_mreq));
   }
 
-  if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms) == -1) {
+  if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms, output_device) == -1) {
     return -1;
   }
 
@@ -251,7 +255,7 @@ int main(int argc, char *argv[])
 
         if (rate) {
           close_alsa(snd);
-          if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms) == -1) {
+          if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms, output_device) == -1) {
             if (verbosity > 0)
               printf("Unable to set up ALSA with sample rate %u and sample size %hhu, not playing until next format switch.\n", rate, cur_server_size);
             snd = NULL;
