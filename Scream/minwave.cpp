@@ -481,8 +481,6 @@ Return Value:
     return ntStatus;
 } // PropertyHandlerComponentId
 
-#define CB_EXTENSIBLE (sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX))
-
 //=============================================================================
 NTSTATUS CMiniportWaveCyclic::PropertyHandlerProposedFormat(
     IN PPCPROPERTY_REQUEST      PropertyRequest
@@ -520,17 +518,18 @@ Return Value:
                 ntStatus = STATUS_NO_MATCH;
                 if ((pKsFormat->DataFormat.MajorFormat == KSDATAFORMAT_TYPE_AUDIO) && (pKsFormat->DataFormat.SubFormat == KSDATAFORMAT_SUBTYPE_PCM) && (pKsFormat->DataFormat.Specifier == KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)) {
                     WAVEFORMATEX* pWfx = (WAVEFORMATEX*)&pKsFormat->WaveFormatEx;
-                    // We only support 2 channels at freq >= 44100, sampling size >= 16bits
+                    // We support from 1 to 8 channels at freq >= 44100, sampling size >= 16bits
                     if ( ((pWfx->wBitsPerSample == 16) || (pWfx->wBitsPerSample == 24) || (pWfx->wBitsPerSample == 32)) &&
                          ((pWfx->nSamplesPerSec == 44100) || (pWfx->nSamplesPerSec == 48000) || (pWfx->nSamplesPerSec == 96000) || (pWfx->nSamplesPerSec == 192000)) ) {
                         if ((pWfx->wFormatTag == WAVE_FORMAT_PCM) && (pWfx->cbSize == 0)) {
-                            if (pWfx->nChannels == 2) {
+                            if ((pWfx->nChannels >= 1) && (pWfx->nChannels <= 8)) {
                                 ntStatus = STATUS_SUCCESS;
                             }
                         }
                         else if ((pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) && (pWfx->cbSize == CB_EXTENSIBLE)) {
                             WAVEFORMATEXTENSIBLE* pWfxT = (WAVEFORMATEXTENSIBLE*)pWfx;
-                            if ((pWfx->nChannels == 2) && (pWfxT->dwChannelMask == KSAUDIO_SPEAKER_STEREO)) {
+                            // The channel mask can be greater than 0x07FF, but only in exotic configurations. 
+                            if ((pWfx->nChannels >= 1) && (pWfx->nChannels <= 8) && (pWfxT->dwChannelMask <= 0x07FF)) {
                                 ntStatus = STATUS_SUCCESS;
                             }
                         }

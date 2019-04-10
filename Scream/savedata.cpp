@@ -9,7 +9,8 @@
 #define MULTICAST_TARGET    "239.255.77.77"
 #define MULTICAST_PORT      4010
 #define PCM_PAYLOAD_SIZE    1152                        // PCM payload size (divisible by 2, 3 and 4 bytes per sample * 2 channels)
-#define CHUNK_SIZE          (PCM_PAYLOAD_SIZE + 2)      // Add two bytes so we can send a small header with bytes/sample and sampling freq markers
+#define HEADER_SIZE         5                           // m_bSamplingFreqMarker, m_bBitsPerSampleMarker, m_bChannels, m_wChannelMask
+#define CHUNK_SIZE          (PCM_PAYLOAD_SIZE + HEADER_SIZE)      // Add two bytes so we can send a small header with bytes/sample and sampling freq markers
 #define NUM_CHUNKS          80                          // How many payloads in ring buffer
 #define BUFFER_SIZE         CHUNK_SIZE * NUM_CHUNKS     // Ring buffer size
 
@@ -150,7 +151,7 @@ PDEVICE_OBJECT CSaveData::GetDeviceObject(void) {
 
 #pragma code_seg("PAGE")
 //=============================================================================
-NTSTATUS CSaveData::Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample) {
+NTSTATUS CSaveData::Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample, WORD nChannels, DWORD dwChannelMask) {
     PAGED_CODE();
 
     NTSTATUS          ntStatus = STATUS_SUCCESS;
@@ -160,6 +161,8 @@ NTSTATUS CSaveData::Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample) {
     // Only multiples of 44100 and 48000 are supported
     m_bSamplingFreqMarker  = (BYTE)((nSamplesPerSec % 44100) ? (0 + (nSamplesPerSec / 48000)) : (128 + (nSamplesPerSec / 44100)));
     m_bBitsPerSampleMarker = (BYTE)(wBitsPerSample);
+    m_bChannels = (BYTE)nChannels;
+    m_wChannelMask = (WORD)dwChannelMask;
 
     // Allocate memory for data buffer.
     if (NT_SUCCESS(ntStatus)) {
@@ -379,7 +382,10 @@ void CSaveData::WriteData(IN PBYTE pBuffer, IN ULONG ulByteCount) {
             // Start a new chunk
             m_pBuffer[offset]     = m_bSamplingFreqMarker;
             m_pBuffer[offset + 1] = m_bBitsPerSampleMarker;
-            offset += 2;
+            m_pBuffer[offset + 2] = m_bChannels;
+            m_pBuffer[offset + 3] = (BYTE)(m_wChannelMask    & 0xFF);
+            m_pBuffer[offset + 4] = (BYTE)(m_wChannelMask>>8 & 0xFF);
+            offset += HEADER_SIZE;
             w = ((BUFFER_SIZE - offset) < toWrite) ? (BUFFER_SIZE - offset) : toWrite;
             w = (w > PCM_PAYLOAD_SIZE) ? PCM_PAYLOAD_SIZE : w;
             RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
