@@ -14,7 +14,8 @@
 #define DEFAULT_MULTICAST_GROUP "239.255.77.77"
 #define DEFAULT_PORT 4010
 
-#define MAX_SO_PACKETSIZE 1154
+#define HEADER_SIZE 5
+#define MAX_SO_PACKETSIZE 1152+HEADER_SIZE
 
 static void show_usage(const char *arg0)
 {
@@ -81,10 +82,12 @@ int main(int argc, char*argv[]) {
   struct ip_mreq imreq;
   pa_simple *s;
   pa_sample_spec ss;
+  pa_channel_map channel_map;
+  uint16_t cur_channel_map = 0;
   int opt;
-  unsigned char cur_sample_rate = 0, cur_sample_size = 0;
+  unsigned char cur_sample_rate = 0, cur_sample_size = 0, cur_channels = 0, cur_channel_map_lsb = 0, cur_channel_map_msb = 0;
   unsigned char buf[MAX_SO_PACKETSIZE];
-  
+
   // Command line options
   int use_unicast       = 0;
   char *multicast_group = NULL;
@@ -115,6 +118,9 @@ int main(int argc, char*argv[]) {
     show_usage(argv[0]);
   }
 
+  // map to stereo, it's the default number of channels
+  pa_channel_map_init_stereo(&channel_map);
+
   // Start with base default format, will switch to actual format later
   ss.format = PA_SAMPLE_S16LE;
   ss.rate = 44100;
@@ -125,7 +131,7 @@ int main(int argc, char*argv[]) {
     NULL,
     "Audio",
     &ss,
-    NULL,
+    &channel_map,
     NULL,
     NULL
   );
@@ -152,11 +158,17 @@ int main(int argc, char*argv[]) {
 
   for (;;) {
     n = recvfrom(sockfd, buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
-    if (n > 2) {
+    if (n > HEADER_SIZE) {
 
-      if (cur_sample_rate != buf[0] || cur_sample_size != buf[1]) {
+      if (cur_sample_rate != buf[0] || cur_sample_size != buf[1] || cur_channels != buf[2] || cur_channel_map_lsb != buf[3] || cur_channel_map_msb != buf[4]) {
         cur_sample_rate = buf[0];
         cur_sample_size = buf[1];
+        cur_channels = buf[2];
+        cur_channel_map_lsb = buf[3];
+        cur_channel_map_msb = buf[4];
+        cur_channel_map = (cur_channel_map_msb << 8) | cur_channel_map_lsb;
+
+	ss.channels = cur_channels;
 
         ss.rate = ((cur_sample_rate >= 128) ? 44100 : 48000) * (cur_sample_rate % 128);
         switch (cur_sample_size) {
@@ -168,6 +180,56 @@ int main(int argc, char*argv[]) {
             ss.rate = 0;
         }
 
+        if (cur_channels == 1) {
+          pa_channel_map_init_mono(&channel_map);
+        }
+        else if (cur_channels == 2) {
+          pa_channel_map_init_stereo(&channel_map);
+        }
+	else {
+          pa_channel_map_init(&channel_map);
+          channel_map.channels = cur_channels;
+          // k is the key to map a windows SPEAKER_* position to a PA_CHANNEL_POSITION_*
+          // it goes from 0 (SPEAKER_FRONT_LEFT) up to 10 (SPEAKER_SIDE_RIGHT) following the order in ksmedia.h
+          // the SPEAKER_TOP_* values are not used
+          int k = -1;
+          for (int i=0; i<cur_channels; i++) {
+            for (int j = k+1; j<=10; j++) {// check the channel map bit by bit from lsb to msb, starting from were we left on the previous step
+              if ((cur_channel_map >> j) & 0x01) {// if the bit in j position is set then we have the key for this channel
+                k = j;
+                break;
+              }
+            }
+            // map the key value to a pulseaudio channel position
+            switch (k) {
+              case  0: channel_map.map[i] = PA_CHANNEL_POSITION_LEFT; break;
+              case  1: channel_map.map[i] = PA_CHANNEL_POSITION_RIGHT; break;
+              case  2: channel_map.map[i] = PA_CHANNEL_POSITION_CENTER; break;
+              case  3: channel_map.map[i] = PA_CHANNEL_POSITION_LFE; break;
+              case  4: channel_map.map[i] = PA_CHANNEL_POSITION_REAR_LEFT; break;
+              case  5: channel_map.map[i] = PA_CHANNEL_POSITION_REAR_RIGHT; break;
+              case  6: channel_map.map[i] = PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER; break;
+              case  7: channel_map.map[i] = PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER; break;
+              case  8: channel_map.map[i] = PA_CHANNEL_POSITION_REAR_CENTER; break;
+              case  9: channel_map.map[i] = PA_CHANNEL_POSITION_SIDE_LEFT; break;
+              case 10: channel_map.map[i] = PA_CHANNEL_POSITION_SIDE_RIGHT; break;
+              default:
+                // center is a safe default, at least it's balanced. This shouldn't happen, but it's better to have a fallback
+                printf("Channel %i coult not be mapped. Falling back to 'center'.\n", i);
+                channel_map.map[i] = PA_CHANNEL_POSITION_CENTER;
+            }
+          }
+        }
+        // this is for extra safety
+        if (!pa_channel_map_valid(&channel_map)) {
+          printf("Invalid channel mapping, falling back to CHANNEL_MAP_WAVEEX.\n");
+          pa_channel_map_init_extend(&channel_map, cur_channels, PA_CHANNEL_MAP_WAVEEX);
+        }
+        if (!pa_channel_map_compatible(&channel_map, &ss)){
+          printf("Incompatible channel mapping.\n");
+          ss.rate = 0;
+        }
+
         if (ss.rate > 0) {
           if (s) pa_simple_free(s);
           s = pa_simple_new(NULL,
@@ -176,21 +238,21 @@ int main(int argc, char*argv[]) {
             NULL,
             "Audio",
             &ss,
-            NULL,
+            &channel_map,
             NULL,
             NULL
           );
           if (s) {
-            printf("Switched format to sample rate %u and sample size %hhu.\n", ss.rate, cur_sample_size);
+            printf("Switched format to sample rate %u, sample size %hhu and %u channels.\n", ss.rate, cur_sample_size, cur_channels);
           }
           else {
-            printf("Unable to open PulseAudio with sample rate %u and sample size %hhu, not playing until next format switch.\n", ss.rate, cur_sample_size);
+            printf("Unable to open PulseAudio with sample rate %u, sample size %hhu and %u channels, not playing until next format switch.\n", ss.rate, cur_sample_size, cur_channels);
             ss.rate = 0;
           }
         }
       }
       if (!ss.rate) continue;
-      if (pa_simple_write(s, &buf[2], n - 2, &error) < 0) {
+      if (pa_simple_write(s, &buf[HEADER_SIZE], n - HEADER_SIZE, &error) < 0) {
         printf("pa_simple_write() failed: %s\n", pa_strerror(error));
         goto BAIL;
       }
