@@ -83,9 +83,13 @@ int main(int argc, char*argv[]) {
   pa_simple *s;
   pa_sample_spec ss;
   pa_channel_map channel_map;
-  uint16_t cur_channel_map = 0;
   int opt;
-  unsigned char cur_sample_rate = 0, cur_sample_size = 0, cur_channels = 0, cur_channel_map_lsb = 0, cur_channel_map_msb = 0;
+  unsigned char cur_sample_rate = 0;
+  unsigned char cur_sample_size = 0;
+  unsigned char cur_channels = 2;
+  unsigned char cur_channel_map_lsb = 0x03; // stereo
+  unsigned char cur_channel_map_msb = 0;
+  uint16_t cur_channel_map = (cur_channel_map_msb << 8) | cur_channel_map_lsb;
   unsigned char buf[MAX_SO_PACKETSIZE];
 
   // Command line options
@@ -124,7 +128,7 @@ int main(int argc, char*argv[]) {
   // Start with base default format, will switch to actual format later
   ss.format = PA_SAMPLE_S16LE;
   ss.rate = 44100;
-  ss.channels = 2;
+  ss.channels = cur_channels;
   s = pa_simple_new(NULL,
     "Scream",
     PA_STREAM_PLAYBACK,
@@ -168,7 +172,7 @@ int main(int argc, char*argv[]) {
         cur_channel_map_msb = buf[4];
         cur_channel_map = (cur_channel_map_msb << 8) | cur_channel_map_lsb;
 
-	ss.channels = cur_channels;
+        ss.channels = cur_channels;
 
         ss.rate = ((cur_sample_rate >= 128) ? 44100 : 48000) * (cur_sample_rate % 128);
         switch (cur_sample_size) {
@@ -186,7 +190,7 @@ int main(int argc, char*argv[]) {
         else if (cur_channels == 2) {
           pa_channel_map_init_stereo(&channel_map);
         }
-	else {
+        else {
           pa_channel_map_init(&channel_map);
           channel_map.channels = cur_channels;
           // k is the key to map a windows SPEAKER_* position to a PA_CHANNEL_POSITION_*
@@ -218,6 +222,23 @@ int main(int argc, char*argv[]) {
                 printf("Channel %i coult not be mapped. Falling back to 'center'.\n", i);
                 channel_map.map[i] = PA_CHANNEL_POSITION_CENTER;
             }
+            const char *channel_name;
+            switch (k) {
+              case  0: channel_name = "Front Left"; break;
+              case  1: channel_name = "Front Right"; break;
+              case  2: channel_name = "Front Center"; break;
+              case  3: channel_name = "LFE / Subwoofer"; break;
+              case  4: channel_name = "Rear Left"; break;
+              case  5: channel_name = "Rear Right"; break;
+              case  6: channel_name = "Front-Left Center"; break;
+              case  7: channel_name = "Front-Right Center"; break;
+              case  8: channel_name = "Rear Center"; break;
+              case  9: channel_name = "Side Left"; break;
+              case 10: channel_name = "Side Right"; break;
+              default:
+                channel_name = "Unknown. Setted to Center.";
+            }
+            printf("Channel %i mapped to %s\n", i, channel_name);
           }
         }
         // this is for extra safety
