@@ -1,0 +1,3 @@
+[submodule "Receivers/android"]
+	path = Receivers/android
+	url = https://github.com/martinellimarco/scream-android
