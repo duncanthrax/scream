@@ -96,7 +96,7 @@ for 5.1 or higher channel modes.
 
 Setting up default speaker configuration (optional)
 -------------------------------------------------------------
-Thanks to the great work of @martinellimarco , if your target
+Thanks to the great work of @martinellimarco, if your target
 system has a multichannel speaker setup, you can extend that to
 Windows as well. Use the "Configure" wizard of the sound device
 driver dialog, as shown below. Please note that this is just a
