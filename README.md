@@ -13,7 +13,6 @@ Scream is based on Microsoft's MSVAD audio driver sample code.
 The original code is licensed under MS-PL, as are my changes
 and additions. See LICENSE for the actual license text.
 
-
 Download and install
 ---------------------------------------------------------------
 A ZIP file containing a signed x64 build is [available on the
@@ -37,12 +36,15 @@ Receivers
 type 'make' to build it. You might need to install build tools
 and Pulseaudio development packages.
 
-- Linux/ALSA: Contributed by @ivan. Not included in the installer
-package. Just type 'make' to build it.You might need to install
-build tools and ALSA development packages.
+- Linux/ALSA: Originally contributed by @ivan. Not included in
+the installer package. Just type 'make' to build it.You might
+need to install build tools and ALSA development packages.
 
 - Windows: ScreamReader, contributed by @MrShoenel. Included in
-the installer package as of version 1.2.
+the installer package as of version 1.2. This receiver does not
+support positional mapping of multichannel (more than stereo)
+setups - meaning a mismatch in speaker setup can lead to channels
+being played in the wrong position.
 
 All three receivers can be run as unprivileged users. Receiver
 systems that have an input firewall need to open UDP port 4010,
@@ -55,18 +57,23 @@ the local LAN as a multicast stream (using unicast is optional -
 see below). Delay is minimal, since all processing is done
 on kernel level. There is no userspace portion.
 
-The multicast target address and port is
-"239.255.77.77:4010". The audio is a raw PCM stream, always with two
-channels (stereo). The default sampling rate and size can be set
-as the "Default format" in the driver "Advanced" property page.
+The multicast target address and port is "239.255.77.77:4010".
+The audio is a raw PCM stream. The default sampling rate and
+size can be set as the "Default format" in the driver "Advanced"
+property page. The default speaker/channel configuration can be
+set on the "Configure" dialog of the Scream sound device.
+
 Data is transferred in UDP frames with a payload size of max.
-1154 bytes, consisting of 2 bytes header and 1152 bytes PCM data.
+1157 bytes, consisting of 5 bytes header and 1152 bytes PCM data.
 The latter number is divisible by 4, 6 and 8, so a full number
-of samples for both channels will always fit into a packet.
+of samples for all channels will always fit into a packet.
 The first header byte denotes the sampling rate. Bit 7 specifies
 the base rate: 0 for 48kHz, 1 for 44,1kHz. Other bits specify the
 multiplier for the base rate. The second header byte denotes the
-sampling width, in bits. No magic necessary there.
+sampling width, in bits. The third header byte denotes the number
+of channels being transferred. The fourth and fifth header bytes
+make up the DWORD dwChannelMask from Microsofts WAVEFORMATEXTENSIBLE
+structure, describing the mapping of channels to speaker positions.
 
 Receivers simply need to read the stream off the network and
 stuff it into a local audio sink. The receiver system's kernel
@@ -75,19 +82,32 @@ usually sufficient to just open a multicast listen socket and
 start reading from it. Minimal buffering (~ 4 times the UDP
 payload size) should be done to account for jitter. 
 
-
 Setting the sampling rate (optional)
 -------------------------------------------------------------
 To satisfy your audiophile feelings, or to reduce unnecessary
 resampling, you might want to set a higher sampling rate and/or
 sampling width. You can do that on the driver "Advanced" property
-page:
+page, as shown below. *Warning:* using high sampling freqs with
+24/32 bits width in combination with multichannel can lead to high
+bit rates on the network. We recommend to stick to 48kHz/16 bits
+for 5.1 or higher channel modes.
 
 <img src="doc/sampling-rate.png" width="700"/>
 
+Setting up default speaker configuration (optional)
+-------------------------------------------------------------
+Thanks to the great work of @martinellimarco , if your target
+system has a multichannel speaker setup, you can extend that to
+Windows as well. Use the "Configure" wizard of the sound device
+driver dialog, as shown below. Please note that this is just a
+system default, and that application software (like games) may
+require their own settings to be made.
+
+<img src="doc/speaker-setup.png" width="700"/>
 
 Using unicast instead of multicast (optional)
 -------------------------------------------------------------
+This is only recommended if multicast gives you problems.
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
 
