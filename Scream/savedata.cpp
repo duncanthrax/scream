@@ -11,7 +11,7 @@
 #define PCM_PAYLOAD_SIZE    1152                        // PCM payload size (divisible by 2, 3 and 4 bytes per sample * 2 channels)
 #define HEADER_SIZE         5                           // m_bSamplingFreqMarker, m_bBitsPerSampleMarker, m_bChannels, m_wChannelMask
 #define CHUNK_SIZE          (PCM_PAYLOAD_SIZE + HEADER_SIZE)      // Add two bytes so we can send a small header with bytes/sample and sampling freq markers
-#define NUM_CHUNKS          80                          // How many payloads in ring buffer
+#define NUM_CHUNKS          800                         // How many payloads in ring buffer
 #define BUFFER_SIZE         CHUNK_SIZE * NUM_CHUNKS     // Ring buffer size
 
 //=============================================================================
