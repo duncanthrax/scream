@@ -134,11 +134,15 @@ Return Value:
         m_pDpc                            = NULL;
         m_pTimer                          = NULL;
         m_pvDmaBuffer                     = NULL;
-
         // If this is not the capture stream, create the output file.
         if (!m_fCapture) {
             if (NT_SUCCESS(ntStatus)) {
-                ntStatus = m_SaveData.Initialize(pWfx->nSamplesPerSec, pWfx->wBitsPerSample);
+                DWORD dwChannelMask = KSAUDIO_SPEAKER_STEREO;
+                if ((pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) && (pWfx->cbSize == CB_EXTENSIBLE)) {
+                    WAVEFORMATEXTENSIBLE* pWfxT = (WAVEFORMATEXTENSIBLE*)pWfx;
+                    dwChannelMask = pWfxT->dwChannelMask;
+                }
+                ntStatus = m_SaveData.Initialize(pWfx->nSamplesPerSec, pWfx->wBitsPerSample, pWfx->nChannels, dwChannelMask);
             }
         }
     }

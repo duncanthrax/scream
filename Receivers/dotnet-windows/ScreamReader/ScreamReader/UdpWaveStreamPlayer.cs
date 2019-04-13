@@ -61,7 +61,10 @@ namespace ScreamReader
                 }
 
                 this.volume = value;
-                this.output.Volume = (float)value / 100f;
+                if (this.output != null)
+                {
+                    this.output.Volume = (float)value / 100f;
+                }
             }
         }
         #endregion
@@ -107,13 +110,17 @@ namespace ScreamReader
             {
                 var currentRate = 129;
                 var currentWidth = 16;
+                var currentChannels = 2;
+                var currentChannelsMapLsb = 0x03; // stereo
+                var currentChannelsMapMsb = 0x00;
+                var currentChannelsMap = (currentChannelsMapMsb << 8) | currentChannelsMapLsb;
                 var localEp = new IPEndPoint(IPAddress.Any, this.multicastPort);
 
                 this.udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 this.udpClient.Client.Bind(localEp);
                 this.udpClient.JoinMulticastGroup(this.multicastAddress);
 
-                var rsws = new BufferedWaveProvider(new WaveFormat(44100, 16, 2)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
+                var rsws = new BufferedWaveProvider(new WaveFormat(44100, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
 
                 this.output = new WaveOut()
                 {
@@ -132,13 +139,22 @@ namespace ScreamReader
                         {
                             Byte[] data = this.udpClient.Receive(ref localEp);
                             
-                            if (data[0] != currentRate || data[1] != currentWidth)
+                            if (data[0] != currentRate || data[1] != currentWidth || data[2] != currentChannels || data[3] != currentChannelsMapLsb || data[4] != currentChannelsMapMsb)
                             {
                                 currentRate = data[0];
                                 currentWidth = data[1];
+                                currentChannels = data[2];
+                                currentChannelsMapLsb = data[3];
+                                currentChannelsMapMsb = data[4];
+                                currentChannelsMap = (currentChannelsMapMsb << 8) | currentChannelsMapLsb;
+
+                                // TODO find a way to set a channel map in NAudio. I was not able to find any.
+                                // In practice if both the source and the receiver windows machine have the same speakers configuration setted this doesn't matter,
+                                // but in all other cases the channels will be possibly mismatched.
+
                                 this.output.Stop();
                                 var rate = ((currentRate >= 128) ? 44100 : 48000) * (currentRate % 128);
-                                rsws = new BufferedWaveProvider(new WaveFormat(rate, currentWidth, 2)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
+                                rsws = new BufferedWaveProvider(new WaveFormat(rate, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
                                 this.output = new WaveOut()
                                 {
                                     DesiredLatency = 200
@@ -147,7 +163,7 @@ namespace ScreamReader
                                 this.output.Init(rsws);
                                 this.output.Play();
                             }
-                            rsws.AddSamples(data, 2, data.Length - 2);
+                            rsws.AddSamples(data, 5, data.Length - 5);
                         } catch (SocketException) { } // Usually when interrupted
                     }
                 }, this.cancellationTokenSource.Token);

@@ -12,8 +12,8 @@
 #define DEFAULT_MULTICAST_GROUP "239.255.77.77"
 #define DEFAULT_PORT 4010
 
-#define MAX_SO_PACKETSIZE 1154
-#define CHANNELS 2
+#define HEADER_SIZE 5
+#define MAX_SO_PACKETSIZE 1152+HEADER_SIZE
 
 #define SNDCHK(call, ret) { \
   if (ret < 0) {            \
@@ -98,6 +98,10 @@ int main(int argc, char *argv[])
   unsigned int rate = 44100;
   unsigned char cur_server_rate = 0;
   unsigned char cur_server_size = 0;
+  unsigned char cur_channels = 2;
+  unsigned char cur_channel_map_lsb = 0x03; // stereo
+  unsigned char cur_channel_map_msb = 0;
+  uint16_t cur_channel_map = (cur_channel_map_msb << 8) | cur_channel_map_lsb;
 
   // Command line options
   int use_unicast       = 0;
@@ -151,12 +155,16 @@ int main(int argc, char *argv[])
 
    for (;;) {
     n = recvfrom(sockfd, &buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
-    if (n < 2) continue;
+    if (n < HEADER_SIZE) continue;
     
     // Change rate/size?
-    if (cur_server_rate != buf[0] || cur_server_size != buf[1]) {
+    if (cur_server_rate != buf[0] || cur_server_size != buf[1] || cur_channels != buf[2] || cur_channel_map_lsb != buf[3] || cur_channel_map_msb != buf[4]) {
         cur_server_rate = buf[0];
         cur_server_size = buf[1];
+        cur_channels = buf[2];
+        cur_channel_map_lsb = buf[3];
+        cur_channel_map_msb = buf[4];
+        cur_channel_map = (cur_channel_map_msb << 8) | cur_channel_map_lsb;
 
         rate = ((cur_server_rate >= 128) ? 44100 : 48000) * (cur_server_rate % 128);
         switch (cur_server_size) {
@@ -164,16 +172,47 @@ int main(int argc, char *argv[])
           case 24:  bytes_per_sample = 3; break;
           case 32:  bytes_per_sample = 4; break;
           default:
-            if (verbosity > 0)
-              printf("Unsupported sample size %hhu, not playing until next format switch.\n", cur_server_size);
+            if (verbosity > 0) {
+              fprintf(stderr, "Unsupported sample size %hhu, not playing until next format switch.\n", cur_server_size);
+            }
             rate = 0;
         }
 
+        if (cur_channels > 2) {
+          int k = -1;
+          for (int i=0; i<cur_channels; i++) {
+            for (int j = k+1; j<=10; j++) {// check the channel map bit by bit from lsb to msb, starting from were we left on the previous step
+              if ((cur_channel_map >> j) & 0x01) {// if the bit in j position is set then we have the key for this channel
+                k = j;
+                break;
+              }
+            }
+            if (verbosity > 0) {
+              const char *channel_name;
+              switch (k) {
+                case  0: channel_name = "Front Left"; break;
+                case  1: channel_name = "Front Right"; break;
+                case  2: channel_name = "Front Center"; break;
+                case  3: channel_name = "LFE / Subwoofer"; break;
+                case  4: channel_name = "Rear Left"; break;
+                case  5: channel_name = "Rear Right"; break;
+                case  6: channel_name = "Front-Left Center"; break;
+                case  7: channel_name = "Front-Right Center"; break;
+                case  8: channel_name = "Rear Center"; break;
+                case  9: channel_name = "Side Left"; break;
+                case 10: channel_name = "Side Right"; break;
+                default:
+                  channel_name = "Unknown. Setted to Center.";
+              }
+              fprintf(stderr, "Channel %i is %s\n", i, channel_name);
+            }
+          }
+        }
     }
     if (!rate) continue;
 
-    samples = (n - 2) / (bytes_per_sample * CHANNELS);
-	fwrite(&buf[2],bytes_per_sample*2,samples,stdout);	
+    samples = (n - HEADER_SIZE) / (bytes_per_sample * cur_channels);
+    fwrite(&buf[HEADER_SIZE],bytes_per_sample*cur_channels,samples,stdout);
  
   }
 }

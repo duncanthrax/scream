@@ -66,12 +66,14 @@ protected:
 
     BYTE                        m_bSamplingFreqMarker;
     BYTE                        m_bBitsPerSampleMarker;
+    BYTE                        m_bChannels;
+    WORD                        m_wChannelMask;
 
 public:
     CSaveData();
     ~CSaveData();
 
-    NTSTATUS                    Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample);
+    NTSTATUS                    Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample, WORD nChannels, DWORD dwChannelMask);
     void                        Disable(BOOL fDisable);
     
     static void                 DestroyWorkItems(void);

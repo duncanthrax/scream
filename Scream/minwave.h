@@ -15,6 +15,8 @@ Abstract:
 #ifndef _MSVAD_MINWAVE_H_
 #define _MSVAD_MINWAVE_H_
 
+#define CB_EXTENSIBLE (sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX))
+
 //=============================================================================
 // Referenced Forward
 //=============================================================================
