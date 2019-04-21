@@ -32,6 +32,8 @@ NTSTATUS CreateMiniportTopologyMSVAD(OUT PUNKNOWN *, IN  REFCLSID, IN  PUNKNOWN,
 
 PCHAR g_UnicastIPv4;
 DWORD g_UnicastPort;
+//0 = false, otherwhise it's value is the size in MiB of the IVSHMEM we want to use
+UINT8 g_UseIVSHMEM;
 
 //-----------------------------------------------------------------------------
 // Referenced forward.
@@ -75,14 +77,17 @@ Returns:
 
     UNICODE_STRING      unicastIPv4;
     DWORD               unicastPort = 0;
+    DWORD               useIVSHMEM = 0;
 
     RtlZeroMemory(&unicastIPv4, sizeof(UNICODE_STRING));
 
     RTL_QUERY_REGISTRY_TABLE paramTable[] = {
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastIPv4", &unicastIPv4, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastPort", &unicastPort, REG_NONE,  NULL, 0 },
+        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UseIVSHMEM", &useIVSHMEM, REG_NONE,  NULL, 0 },
         { NULL,   0,                         NULL,           NULL,         0,         NULL, 0 }
     };
+
 
     DPF(D_TERSE, ("[GetRegistrySettings]"));
 
@@ -157,6 +162,8 @@ Returns:
             ntStatus = STATUS_INSUFFICIENT_RESOURCES;
         }
     }
+
+    g_UseIVSHMEM = (UINT8)useIVSHMEM;
 
     ExFreePool(parametersPath.Buffer);
 

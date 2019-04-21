@@ -48,6 +48,9 @@
     <ClCompile Include="savedata.cpp">
       <Filter>Driver Files</Filter>
     </ClCompile>
+    <ClCompile Include="ivshmemsavedata.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -84,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="netiodef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ivshmemsavedata.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

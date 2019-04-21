@@ -12,6 +12,7 @@ Abstract:
 #define _MSVAD_MINSTREAM_H_
 
 #include "savedata.h"
+#include "ivshmemsavedata.h"
 
 //=============================================================================
 // Referenced Forward
@@ -48,6 +49,7 @@ protected:
     ULONG                       m_ulByteDisplacementCarryForward;   // Bytes to carry forward to next calc.
 
     CSaveData                   m_SaveData;                         // Object to save settings.
+    CIVSHMEMSaveData            m_IVSHMEMSaveData;                  // Object to save settings if we are using IVSHMEM.
 
 public:
     DECLARE_STD_UNKNOWN();

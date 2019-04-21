@@ -142,7 +142,12 @@ Return Value:
                     WAVEFORMATEXTENSIBLE* pWfxT = (WAVEFORMATEXTENSIBLE*)pWfx;
                     dwChannelMask = pWfxT->dwChannelMask;
                 }
-                ntStatus = m_SaveData.Initialize(pWfx->nSamplesPerSec, pWfx->wBitsPerSample, pWfx->nChannels, dwChannelMask);
+                if (g_UseIVSHMEM) {
+                    ntStatus = m_IVSHMEMSaveData.Initialize(pWfx->nSamplesPerSec, pWfx->wBitsPerSample, pWfx->nChannels, dwChannelMask);
+                }
+                else {
+                    ntStatus = m_SaveData.Initialize(pWfx->nSamplesPerSec, pWfx->wBitsPerSample, pWfx->nChannels, dwChannelMask);
+                }
             }
         }
     }
@@ -455,7 +460,12 @@ Return Value:
     
                 // Wait until all work items are completed.
                 if (!m_fCapture) {
-                    m_SaveData.WaitAllWorkItems();
+                    if (g_UseIVSHMEM) {
+                        m_IVSHMEMSaveData.WaitAllWorkItems();
+                    }
+                    else {
+                        m_SaveData.WaitAllWorkItems();
+                    }
                 }
                 break;
         }
@@ -623,7 +633,12 @@ Return Value:
 {
     UNREFERENCED_PARAMETER(Destination);
 
-    m_SaveData.WriteData((PBYTE) Source, ByteCount);
+    if (g_UseIVSHMEM) {
+        m_IVSHMEMSaveData.WriteData((PBYTE)Source, ByteCount);
+    }
+    else {
+        m_SaveData.WriteData((PBYTE)Source, ByteCount);
+    }
 } // CopyTo
 
 //=============================================================================

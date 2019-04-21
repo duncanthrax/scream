@@ -51,26 +51,27 @@ CSaveData::CSaveData() : m_pBuffer(NULL), m_ulOffset(0), m_ulSendOffset(0), m_fW
 
     DPF_ENTER(("[CSaveData::CSaveData]"));
     
-    WSK_CLIENT_NPI   wskClientNpi;
-    
-    // allocate work item for this stream
-    m_pWorkItem = (PSAVEWORKER_PARAM)ExAllocatePoolWithTag(NonPagedPool, sizeof(SAVEWORKER_PARAM), MSVAD_POOLTAG);
-    if (m_pWorkItem) {
-        m_pWorkItem->WorkItem = IoAllocateWorkItem(GetDeviceObject());
-        KeInitializeEvent(&(m_pWorkItem->EventDone), NotificationEvent, TRUE);
+    if (!g_UseIVSHMEM) {
+        WSK_CLIENT_NPI   wskClientNpi;
+
+        // allocate work item for this stream
+        m_pWorkItem = (PSAVEWORKER_PARAM)ExAllocatePoolWithTag(NonPagedPool, sizeof(SAVEWORKER_PARAM), MSVAD_POOLTAG);
+        if (m_pWorkItem) {
+            m_pWorkItem->WorkItem = IoAllocateWorkItem(GetDeviceObject());
+            KeInitializeEvent(&(m_pWorkItem->EventDone), NotificationEvent, TRUE);
+        }
+
+        // get us an IRP
+        m_irp = IoAllocateIrp(1, FALSE);
+
+        // initialize io completion sychronization event
+        KeInitializeEvent(&m_syncEvent, SynchronizationEvent, FALSE);
+
+        // Register with WSK.
+        wskClientNpi.ClientContext = NULL;
+        wskClientNpi.Dispatch = &WskSampleClientDispatch;
+        WskRegister(&wskClientNpi, &m_wskSampleRegistration);
     }
-
-    // get us an IRP
-    m_irp = IoAllocateIrp(1, FALSE);
-
-    // initialize io completion sychronization event
-    KeInitializeEvent(&m_syncEvent, SynchronizationEvent, FALSE);
-    
-    // Register with WSK.
-    wskClientNpi.ClientContext = NULL;
-    wskClientNpi.Dispatch = &WskSampleClientDispatch;
-    WskRegister(&wskClientNpi, &m_wskSampleRegistration);
-    
 } // CSaveData
 
 //=============================================================================
@@ -79,35 +80,36 @@ CSaveData::~CSaveData() {
 
     DPF_ENTER(("[CSaveData::~CSaveData]"));
 
-    // frees the work item
-    if (m_pWorkItem->WorkItem != NULL) {
-        IoFreeWorkItem(m_pWorkItem->WorkItem);
-        m_pWorkItem->WorkItem = NULL;
+    if (!g_UseIVSHMEM) {
+        // frees the work item
+        if (m_pWorkItem->WorkItem != NULL) {
+            IoFreeWorkItem(m_pWorkItem->WorkItem);
+            m_pWorkItem->WorkItem = NULL;
+        }
+
+        // close socket
+        if (m_socket) {
+            IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
+            IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
+            ((PWSK_PROVIDER_BASIC_DISPATCH)m_socket->Dispatch)->WskCloseSocket(m_socket, m_irp);
+            KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
+        }
+
+        // Deregister with WSK. This call will wait until all the references to
+        // the WSK provider NPI are released and all the sockets are closed. Note
+        // that if the worker thread has not started yet, then when it eventually
+        // starts, its WskCaptureProviderNPI call will fail and the work queue
+        // will be flushed and cleaned up properly.
+        WskDeregister(&m_wskSampleRegistration);
+
+        // free irp
+        IoFreeIrp(m_irp);
+
+        if (m_pBuffer) {
+            ExFreePoolWithTag(m_pBuffer, MSVAD_POOLTAG);
+            IoFreeMdl(m_pMdl);
+        }
     }
-
-    // close socket
-    if(m_socket) {
-        IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
-        IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
-        ((PWSK_PROVIDER_BASIC_DISPATCH)m_socket->Dispatch)->WskCloseSocket(m_socket, m_irp);
-        KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
-    }
-    
-    // Deregister with WSK. This call will wait until all the references to
-    // the WSK provider NPI are released and all the sockets are closed. Note
-    // that if the worker thread has not started yet, then when it eventually
-    // starts, its WskCaptureProviderNPI call will fail and the work queue
-    // will be flushed and cleaned up properly.
-    WskDeregister(&m_wskSampleRegistration);
-
-    // free irp
-    IoFreeIrp(m_irp);
-
-    if (m_pBuffer) {
-        ExFreePoolWithTag(m_pBuffer, MSVAD_POOLTAG);
-        IoFreeMdl(m_pMdl);
-    }
-
 } // CSaveData
 
 //=============================================================================
@@ -275,7 +277,7 @@ void CSaveData::CreateSocket(void) {
     // bind the socket
     IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
     IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
-    status = ((PWSK_PROVIDER_DATAGRAM_DISPATCH)(m_socket->Dispatch))->WskBind(m_socket, (PSOCKADDR)(&locaddr4), 0, m_irp);	
+    status = ((PWSK_PROVIDER_DATAGRAM_DISPATCH)(m_socket->Dispatch))->WskBind(m_socket, (PSOCKADDR)(&locaddr4), 0, m_irp);
     KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
     
     DPF(D_TERSE, ("WskBind: %x", m_irp->IoStatus.Status));
@@ -397,7 +399,7 @@ void CSaveData::WriteData(IN PBYTE pBuffer, IN ULONG ulByteCount) {
 
     // If I/O worker was done, relaunch it
     ntStatus = KeWaitForSingleObject(&(m_pWorkItem->EventDone), Executive, KernelMode, FALSE, &timeOut);
-    if (STATUS_SUCCESS == ntStatus) {		
+    if (STATUS_SUCCESS == ntStatus) {
             m_pWorkItem->pSaveData = this;
             KeResetEvent(&(m_pWorkItem->EventDone));
             IoQueueWorkItem(m_pWorkItem->WorkItem, SendDataWorkerCallback, CriticalWorkQueue, (PVOID)m_pWorkItem);
