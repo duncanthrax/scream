@@ -130,7 +130,7 @@ example:
 ```
 <shmem name='scream-ivshmem'>
   <model type='ivshmem-plain'/>
-  <size unit='M'>1</size>
+  <size unit='M'>2</size>
   <address type='pci' domain='0x0000' bus='0x00' slot='0x11' function='0x0'/>
 </shmem>
 ```
