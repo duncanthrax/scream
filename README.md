@@ -9,6 +9,12 @@ through their own audio outputs. Two simple receivers for Linux
 (interfacing with PulseAudio or ALSA) and one for Windows are
 provided.
 
+For the special scenario of a Windows guest on a QEMU host,
+@martinellimarco has contributed support for transferring audio
+via the IVSHMEM driver mechanism, similar to the GPU
+pass-through software "Looking Glass". See the section on
+IVSHMEM below.
+
 Scream is based on Microsoft's MSVAD audio driver sample code.
 The original code is licensed under MS-PL, as are my changes
 and additions. See LICENSE for the actual license text.
@@ -112,6 +118,32 @@ Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
 
 <img src="doc/registry.png"/>
+
+Using IVSHMEM between Windows guest and Linux host
+-------------------------------------------------------------
+This can be used as an alternative to the default networked
+transfer when using QEMU/KVM.
+- Add a IVSHMEM device to your VM. We recommend a size of 2MB.
+If you use other IVSHMEM devices, we recommend to use the same
+domain and bus, just varying the slot numbers. Here is a config
+example:
+```
+<shmem name='scream-ivshmem'>
+  <model type='ivshmem-plain'/>
+  <size unit='M'>1</size>
+  <address type='pci' domain='0x0000' bus='0x00' slot='0x11' function='0x0'/>
+</shmem>
+```
+- To make the driver use IVSHMEM, add a DWORD `HKLM\SYSTEM\CurrentControlSet\Services\Scream\Options\UseIVSHMEM`,
+with the value being the size of the device in MB (2, as recommended). Please
+note that scream will identify the device by its size, so you should only
+have one IVSHMEM device with that specific size. Also note that you
+might have to create the `Options` key.
+- When the VM is running, check if the device exists as /dev/shm/scream-ivshmem,
+and if the user you want to run the receiver as has read access.
+If so, run a IVSHMEM-capable receiver with the path of the SHM file
+as commandline parameter, for example:
+```scream-ivshmem-pulse /dev/shm/scream-ivshmem```
 
 Building
 -------------------------------------------------------------
