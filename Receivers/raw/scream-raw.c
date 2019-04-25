@@ -15,14 +15,6 @@
 #define HEADER_SIZE 5
 #define MAX_SO_PACKETSIZE 1152+HEADER_SIZE
 
-#define SNDCHK(call, ret) { \
-  if (ret < 0) {            \
-    alsa_error(call, ret);  \
-    return -1;              \
-  }                         \
-}
-
-
 static void show_usage(const char *arg0)
 {
   fprintf(stderr, "\n");

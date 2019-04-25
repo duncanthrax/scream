@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
   int target_latency_ms = 50;
   char *output_device ="default";
 
-  while ((opt = getopt(argc, argv, "t:vuho:")) != -1) {
+  while ((opt = getopt(argc, argv, "t:vo:")) != -1) {
     switch (opt) {
     case 't':
       target_latency_ms = atoi(optarg);
