@@ -20,6 +20,10 @@
 
 //=============================================================================
 BOOLEAN CIVSHMEMSaveData::RequestMMAP() {
+	if (!m_ivshmem.devObj) {
+		return FALSE;
+	}
+
     IO_STATUS_BLOCK ioStatus = { 0 };
     KEVENT event;
     KeInitializeEvent(&event, NotificationEvent, FALSE);
@@ -51,6 +55,10 @@ BOOLEAN CIVSHMEMSaveData::RequestMMAP() {
 
 //=============================================================================
 void CIVSHMEMSaveData::ReleaseMMAP() {
+	if (!m_ivshmem.devObj) {
+		return;
+	}
+
     IO_STATUS_BLOCK ioStatus = { 0 };
     KEVENT event;
     KeInitializeEvent(&event, NotificationEvent, FALSE);
