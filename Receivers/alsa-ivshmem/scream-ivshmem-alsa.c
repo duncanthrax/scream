@@ -141,7 +141,7 @@ static void * open_mmap(const char *shmfile) {
     exit(3);
   }
 
-  void * map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFD, 0);
+  void * map = mmap(0, st.st_size, PROT_READ, MAP_SHARED, shmFD, 0);
   if (map == MAP_FAILED) {
     fprintf(stderr, "Failed to map the shared memory file: %s", shmfile);
     close(shmFD);
