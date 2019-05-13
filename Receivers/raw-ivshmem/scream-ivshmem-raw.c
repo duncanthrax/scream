@@ -36,19 +36,19 @@ static void show_usage(const char *arg0)
 static void * open_mmap(const char *shmfile) {
   struct stat st;
   if (stat(shmfile, &st) < 0)  {
-    fprintf(stderr, "Failed to stat the shared memory file: %s", shmfile);
+    fprintf(stderr, "Failed to stat the shared memory file: %s\n", shmfile);
     exit(2);
   }
 
-  int shmFD = open(shmfile, O_RDWR, (mode_t)0600);
+  int shmFD = open(shmfile, O_RDONLY);
   if (shmFD < 0) {
-    fprintf(stderr, "Failed to open the shared memory file: %s", shmfile);
+    fprintf(stderr, "Failed to open the shared memory file: %s\n", shmfile);
     exit(3);
   }
 
   void * map = mmap(0, st.st_size, PROT_READ, MAP_SHARED, shmFD, 0);
   if (map == MAP_FAILED) {
-    fprintf(stderr, "Failed to map the shared memory file: %s", shmfile);
+    fprintf(stderr, "Failed to map the shared memory file: %s\n", shmfile);
     close(shmFD);
     exit(4);
   }
