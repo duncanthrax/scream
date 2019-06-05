@@ -529,9 +529,9 @@ Return Value:
                         else if ((pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) && (pWfx->cbSize == CB_EXTENSIBLE)) {
                             WAVEFORMATEXTENSIBLE* pWfxT = (WAVEFORMATEXTENSIBLE*)pWfx;
                             // The channel mask can be greater than 0x07FF, but only in exotic configurations.
-                            // It's important that the number of channels is even, to fit in PCM_PAYLOAD_SIZE. The only known case of odd number is 6.1 surround.
+                            // It's important that the number of channels is even, to fit in PCM_PAYLOAD_SIZE. Mono is an exception.
                             // This restriction doesn't apply if IVSHMEM is used, because the packet size is dynamic there.
-                            if ((pWfx->nChannels >= 1) && (pWfx->nChannels <= 8) && (pWfxT->dwChannelMask <= 0x07FF) && (g_UseIVSHMEM || pWfx->nChannels % 2 == 0)) {
+                            if ((pWfx->nChannels >= 1) && (pWfx->nChannels <= 8) && (pWfxT->dwChannelMask <= 0x07FF) && (g_UseIVSHMEM || pWfx->nChannels == 1 || pWfx->nChannels % 2 == 0)) {
                                 ntStatus = STATUS_SUCCESS;
                             }
                         }
