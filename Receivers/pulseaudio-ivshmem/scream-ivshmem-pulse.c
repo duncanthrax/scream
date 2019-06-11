@@ -91,10 +91,10 @@ int main(int argc, char*argv[]) {
     &ss,
     &channel_map,
     NULL,
-    NULL
+    &error
   );
   if (!s) {
-    printf("Unable to connect to PulseAudio.\n");
+    fprintf(stderr, "Unable to connect to PulseAudio. %s\n", pa_strerror(error));
     goto BAIL;
   }
   
@@ -233,12 +233,12 @@ int main(int argc, char*argv[]) {
     }
     if (!ss.rate) continue;
     if (pa_simple_write(s, buf, header->chunk_size, &error) < 0) {
-      printf("pa_simple_write() failed: %s\n", pa_strerror(error));
+      fprintf(stderr, "pa_simple_write() failed: %s\n", pa_strerror(error));
       goto BAIL;
     }
   }
 
   BAIL:
-  if (s) pa_simple_free(s);
-  return 0;
+    if (s) pa_simple_free(s);
+    return 1;
 };
