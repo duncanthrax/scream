@@ -41,7 +41,7 @@ namespace ScreamReader
 
         private UdpClient udpClient;
 
-        private WaveOut output;
+        private WasapiOut output;
 
         private int volume;
         #endregion
@@ -122,10 +122,7 @@ namespace ScreamReader
 
                 var rsws = new BufferedWaveProvider(new WaveFormat(44100, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
 
-                this.output = new WaveOut()
-                {
-                    DesiredLatency = 200
-                };
+                this.output = new WasapiOut();
                 this.Volume = 100;
 
                 this.output.Init(rsws);
@@ -151,20 +148,22 @@ namespace ScreamReader
                                 // TODO find a way to set a channel map in NAudio. I was not able to find any.
                                 // In practice if both the source and the receiver windows machine have the same speakers configuration setted this doesn't matter,
                                 // but in all other cases the channels will be possibly mismatched.
-
                                 this.output.Stop();
                                 var rate = ((currentRate >= 128) ? 44100 : 48000) * (currentRate % 128);
+
                                 rsws = new BufferedWaveProvider(new WaveFormat(rate, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
-                                this.output = new WaveOut()
-                                {
-                                    DesiredLatency = 200
-                                };
+                                this.output = new WasapiOut();
                                 this.Volume = 100;
                                 this.output.Init(rsws);
                                 this.output.Play();
                             }
                             rsws.AddSamples(data, 5, data.Length - 5);
                         } catch (SocketException) { } // Usually when interrupted
+                        catch(Exception e)
+                        {
+                            System.Windows.Forms.MessageBox.Show(e.StackTrace, e.Message);
+                           
+                        }
                     }
                 }, this.cancellationTokenSource.Token);
 
