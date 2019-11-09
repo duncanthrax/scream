@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -122,6 +124,10 @@ int main(int argc, char*argv[]) {
     show_usage(argv[0]);
   }
 
+  // Opportunistic call to renice us, so we can keep up under
+  // higher load conditions. This may fail when run as non-root.
+  setpriority(PRIO_PROCESS, 0, -11);
+
   // map to stereo, it's the default number of channels
   pa_channel_map_init_stereo(&channel_map);
 
@@ -156,7 +162,7 @@ int main(int argc, char*argv[]) {
     imreq.imr_multiaddr.s_addr = inet_addr(multicast_group ? multicast_group : DEFAULT_MULTICAST_GROUP);
     imreq.imr_interface.s_addr = interface;
 
-    setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, 
+    setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
               (const void *)&imreq, sizeof(struct ip_mreq));
   }
 

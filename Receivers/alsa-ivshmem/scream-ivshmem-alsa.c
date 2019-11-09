@@ -12,6 +12,9 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 #define MAX_CHANNELS 8
 
 #define SNDCHK(call, ret) { \
@@ -156,7 +159,7 @@ int main(int argc, char *argv[])
   if (argc < 2) {
     show_usage(argv[0]);
   }
-  
+
   unsigned char * mmap = open_mmap(argv[1]);
 
   snd_pcm_t *snd;
@@ -202,10 +205,14 @@ int main(int argc, char *argv[])
     show_usage(argv[0]);
   }
 
+  // Opportunistic call to renice us, so we can keep up under
+  // higher load conditions. This may fail when run as non-root.
+  setpriority(PRIO_PROCESS, 0, -11);
+
   if (setup_alsa(&snd, format, rate, verbosity, target_latency_ms, output_device, cur_channels, &channel_map) == -1) {
     return -1;
   }
-  
+
   struct shmheader *header = (struct shmheader*)mmap;
   uint16_t read_idx = header->write_idx;
 
@@ -229,7 +236,7 @@ int main(int argc, char *argv[])
       || cur_sample_size != header->sample_size
       || cur_channels != header->channels
       || cur_channel_map != header->channel_map) {
-      
+
       cur_sample_rate = header->sample_rate;
       cur_sample_size = header->sample_size;
       cur_channels = header->channels;

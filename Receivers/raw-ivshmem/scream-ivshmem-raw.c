@@ -10,6 +10,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 struct shmheader {
   uint32_t magic;
@@ -61,7 +63,7 @@ int main(int argc, char *argv[])
   if (argc < 2) {
     show_usage(argv[0]);
   }
-  
+
   unsigned char * mmap = open_mmap(argv[1]);
 
   int opt;
@@ -74,7 +76,7 @@ int main(int argc, char *argv[])
   unsigned char cur_sample_size = 0;
   unsigned char cur_channels = 2;
   uint16_t cur_channel_map = 0x0003;
-  
+
   while ((opt = getopt(argc, argv, "v")) != -1) {
     switch (opt) {
     case 'v':
@@ -88,6 +90,10 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Expected argument after options\n");
     show_usage(argv[0]);
   }
+
+  // Opportunistic call to renice us, so we can keep up under
+  // higher load conditions. This may fail when run as non-root.
+  setpriority(PRIO_PROCESS, 0, -11);
 
   struct shmheader *header = (struct shmheader*)mmap;
   uint16_t read_idx = header->write_idx;
@@ -107,13 +113,13 @@ int main(int argc, char *argv[])
       read_idx = 0;
     }
     unsigned char *buf = &mmap[header->offset+header->chunk_size*read_idx];
-    
+
     // Change rate/size?
     if ( cur_sample_rate != header->sample_rate
       || cur_sample_size != header->sample_size
       || cur_channels != header->channels
       || cur_channel_map != header->channel_map) {
-      
+
       cur_sample_rate = header->sample_rate;
       cur_sample_size = header->sample_size;
       cur_channels = header->channels;
@@ -166,6 +172,6 @@ int main(int argc, char *argv[])
 
     samples = (header->chunk_size) / (bytes_per_sample * cur_channels);
     fwrite(buf, bytes_per_sample*cur_channels, samples, stdout);
- 
+
   }
 }

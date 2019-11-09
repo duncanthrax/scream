@@ -14,6 +14,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 static void show_usage(const char *arg0)
 {
@@ -62,9 +64,9 @@ int main(int argc, char*argv[]) {
   if (argc != 2) {
     show_usage(argv[0]);
   }
-  
+
   unsigned char * mmap = open_mmap(argv[1]);
-  
+
   int error;
 
   pa_simple *s;
@@ -75,6 +77,10 @@ int main(int argc, char*argv[]) {
   unsigned char cur_sample_size = 0;
   unsigned char cur_channels = 2;
   uint16_t cur_channel_map = 0x0003;
+
+  // Opportunistic call to renice us, so we can keep up under
+  // higher load conditions. This may fail when run as non-root.
+  setpriority(PRIO_PROCESS, 0, -11);
 
   // map to stereo, it's the default number of channels
   pa_channel_map_init_stereo(&channel_map);
@@ -97,10 +103,10 @@ int main(int argc, char*argv[]) {
     fprintf(stderr, "Unable to connect to PulseAudio. %s\n", pa_strerror(error));
     goto BAIL;
   }
-  
+
   struct shmheader *header = (struct shmheader*)mmap;
   uint16_t read_idx = header->write_idx;
-  
+
   for (;;) {
     if (header->magic != 0x11112014) {
       while (header->magic != 0x11112014) {
@@ -121,7 +127,7 @@ int main(int argc, char*argv[]) {
       || cur_sample_size != header->sample_size
       || cur_channels != header->channels
       || cur_channel_map != header->channel_map) {
-      
+
       cur_sample_rate = header->sample_rate;
       cur_sample_size = header->sample_size;
       cur_channels = header->channels;

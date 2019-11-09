@@ -10,6 +10,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 #define DEFAULT_MULTICAST_GROUP "239.255.77.77"
 #define DEFAULT_PORT 4010
 
@@ -236,6 +239,10 @@ int main(int argc, char *argv[])
     show_usage(argv[0]);
   }
 
+  // Opportunistic call to renice us, so we can keep up under
+  // higher load conditions. This may fail when run as non-root.
+  setpriority(PRIO_PROCESS, 0, -11);
+
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   memset((void *)&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
@@ -247,7 +254,7 @@ int main(int argc, char *argv[])
     imreq.imr_multiaddr.s_addr = inet_addr(multicast_group ? multicast_group : DEFAULT_MULTICAST_GROUP);
     imreq.imr_interface.s_addr = interface;
 
-    setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, 
+    setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                (const void *)&imreq, sizeof(struct ip_mreq));
   }
 
@@ -258,7 +265,7 @@ int main(int argc, char *argv[])
   for (;;) {
     n = recvfrom(sockfd, &buf, MAX_SO_PACKETSIZE, 0, NULL, 0);
     if (n < HEADER_SIZE) continue;
-    
+
     // Change rate/size?
     if (cur_server_rate != buf[0] || cur_server_size != buf[1] || cur_channels != buf[2] || cur_channel_map_lsb != buf[3] || cur_channel_map_msb != buf[4]) {
         cur_server_rate = buf[0];
