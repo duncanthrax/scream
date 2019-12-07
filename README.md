@@ -139,7 +139,8 @@ example:
 with the value being the size of the device in MB (2, as recommended). Please
 note that scream will identify the device by its size, so you should only
 have one IVSHMEM device with that specific size. Also note that you
-might have to create the `Options` key.
+might have to create the `Options` key. You can also paste this command into an
+admin CMD shell to create both key and DWORD: `REG ADD HKLM\SYSTEM\CurrentControlSet\Services\Scream\Options /v UseIVSHMEM /t REG_DWORD /d 2`
 - When the VM is running, check if the device exists as /dev/shm/scream-ivshmem,
 and if the user you want to run the receiver as has read access.
 If so, run a IVSHMEM-capable receiver with the path of the SHM file
