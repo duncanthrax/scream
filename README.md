@@ -56,6 +56,10 @@ All three receivers can be run as unprivileged users. Receiver
 systems that have an input firewall need to open UDP port 4010,
 or whatever custom port you use.
 
+A 3rd-party receiver that supports Scream streams is
+https://github.com/mincequi/cornrow. It's primarily meant for
+embedded devices.
+
 Functional description
 ---------------------------------------------------------------
 All audio played through the Scream device will be put onto
