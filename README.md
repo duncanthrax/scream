@@ -132,13 +132,19 @@ If you use other IVSHMEM devices, we recommend to use the same
 domain and bus, just varying the slot numbers. Here is a config
 example:
 ```
-<shmem name='scream-ivshmem'>
-  <model type='ivshmem-plain'/>
-  <size unit='M'>2</size>
-  <address type='pci' domain='0x0000' bus='0x00' slot='0x11' function='0x0'/>
-</shmem>
+...
+<device>
+...
+ <shmem name='scream-ivshmem'>
+   <model type='ivshmem-plain'/>
+   <size unit='M'>2</size>
+   <address type='pci' domain='0x0000' bus='0x00' slot='0x11' function='0x0'/>
+ </shmem>
+ ...
+</device>
+...
 ```
-- Install the IVSHMEM driver from [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/).
+- Install the IVSHMEM driver from [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). As is Windows will automatically install a dummy driver for the IVSHMEM device. To use the IVSHMEM device the `PCI standard RAM Controller` in the `System Devices` node must be manually updated with the one downloaded above.
 - To make the driver use IVSHMEM, add a DWORD `HKLM\SYSTEM\CurrentControlSet\Services\Scream\Options\UseIVSHMEM`,
 with the value being the size of the device in MB (2, as recommended). Please
 note that scream will identify the device by its size, so you should only
