@@ -144,6 +144,13 @@ example:
 </device>
 ...
 ```
+Here is QEMU command example:
+```
+...
+-device ivshmem-plain,memdev=ivshmem_scream \
+-object memory-backend-file,id=ivshmem_scream,share=on,mem-path=/dev/shm/scream-ivshmem,size=2M \
+...
+```
 - Install the IVSHMEM driver from [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). As is Windows will automatically install a dummy driver for the IVSHMEM device. To use the IVSHMEM device the `PCI standard RAM Controller` in the `System Devices` node must be manually updated with the one downloaded above.
 - To make the driver use IVSHMEM, add a DWORD `HKLM\SYSTEM\CurrentControlSet\Services\Scream\Options\UseIVSHMEM`,
 with the value being the size of the device in MB (2, as recommended). Please
