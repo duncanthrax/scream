@@ -144,7 +144,7 @@ example:
 </device>
 ...
 ```
-Here is QEMU command example:
+Alternatively, for those who don't use libvirt, here is an example for the relevant parts of a QEMU command line:
 ```
 ...
 -device ivshmem-plain,memdev=ivshmem_scream \
