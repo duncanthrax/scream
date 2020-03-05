@@ -128,6 +128,9 @@ int main(int argc, char*argv[]) {
   // higher load conditions. This may fail when run as non-root.
   setpriority(PRIO_PROCESS, 0, -11);
 
+  // set application icon
+  setenv("PULSE_PROP_application.icon_name", "audio-card", 0);
+
   // map to stereo, it's the default number of channels
   pa_channel_map_init_stereo(&channel_map);
 
