@@ -20,7 +20,10 @@
 static void show_usage(const char *arg0)
 {
   fprintf(stderr, "\n");
-  fprintf(stderr, "Usage: %s <ivshmem device path>\n", arg0);
+  fprintf(stderr, "Usage: %s <ivshmem device path> [-t <latency>]\n", arg0);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "         All command line options are optional.\n");
+  fprintf(stderr, "         -t <latency>: Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "\n");
   exit(1);
 }
@@ -61,7 +64,7 @@ struct shmheader {
 };
 
 int main(int argc, char*argv[]) {
-  if (argc != 2) {
+  if (argc < 2) {
     show_usage(argv[0]);
   }
 
@@ -72,12 +75,32 @@ int main(int argc, char*argv[]) {
   pa_simple *s;
   pa_sample_spec ss;
   pa_channel_map channel_map;
+  pa_buffer_attr buffer_attr;
 
   unsigned char cur_sample_rate = 0;
   unsigned char cur_sample_size = 0;
   unsigned char cur_channels = 2;
   uint16_t cur_channel_map = 0x0003;
+  
+  int target_latency_ms = 50;
 
+  int opt;
+  while ((opt = getopt(argc, argv, "t:h")) != -1) {
+    switch (opt) {
+    case 't':
+      target_latency_ms = atoi(optarg);
+      if (target_latency_ms < 0) show_usage(argv[0]);
+      break;
+    default:
+      show_usage(argv[0]);
+    }
+  }
+  if (1+optind < argc) {
+    fprintf(stderr, "Expected argument after options\n");
+    show_usage(argv[0]);
+  }
+  
+  
   // Opportunistic call to renice us, so we can keep up under
   // higher load conditions. This may fail when run as non-root.
   setpriority(PRIO_PROCESS, 0, -11);
@@ -92,6 +115,14 @@ int main(int argc, char*argv[]) {
   ss.format = PA_SAMPLE_S16LE;
   ss.rate = 44100;
   ss.channels = cur_channels;
+  
+  // set buffer size for requested latency
+  buffer_attr.maxlength = (uint32_t)-1;
+  buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)target_latency_ms * 1000u, &ss);
+  buffer_attr.prebuf = (uint32_t)-1;
+  buffer_attr.minreq = (uint32_t)-1;
+  buffer_attr.fragsize = (uint32_t)-1;
+  
   s = pa_simple_new(NULL,
     "Scream",
     PA_STREAM_PLAYBACK,
@@ -99,7 +130,7 @@ int main(int argc, char*argv[]) {
     "Audio",
     &ss,
     &channel_map,
-    NULL,
+    &buffer_attr,
     &error
   );
   if (!s) {
@@ -220,7 +251,11 @@ int main(int argc, char*argv[]) {
       }
 
       if (ss.rate > 0) {
+        // sample spec has changed, so the playback buffer size for the requested latency must be recalculated as well
+        buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)target_latency_ms * 1000, &ss);
+
         if (s) pa_simple_free(s);
+        
         s = pa_simple_new(NULL,
           "Scream",
           PA_STREAM_PLAYBACK,
@@ -228,7 +263,7 @@ int main(int argc, char*argv[]) {
           "Audio",
           &ss,
           &channel_map,
-          NULL,
+          &buffer_attr,
           NULL
         );
         if (s) {
