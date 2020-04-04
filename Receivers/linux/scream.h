@@ -1,8 +1,14 @@
 #ifndef SCREAM_H
 #define SCREAM_H
 
+#include <stdint.h>
+
 enum receiver_type {
-    Unicast, Multicast, SharedMem
+  Unicast, Multicast, SharedMem
+};
+
+enum output_type {
+  Raw, Alsa, Pulseaudio
 };
 
 typedef struct receiver_format {
@@ -17,6 +23,5 @@ typedef struct receiver_data {
   unsigned int audio_size;
   unsigned char* audio;
 } receiver_data_t;
-
 
 #endif
