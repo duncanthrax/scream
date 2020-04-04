@@ -58,3 +58,20 @@ Make sure to have read permission for the shared memory device and execute
 ```shell
 $ scream -m /dev/shm/scream-ivshmem
 ```
+
+### ALSA output
+
+If you experience excessive underruns under normal operating conditions,
+lower the process niceness; if it still underruns, raise the default
+target latency (50 ms) with `-t`:
+
+```shell
+$ scream -o alsa -t 100
+```
+
+Note that audio hardware typically has small buffers that result in a
+latency lower than the target latency.
+
+Run with `-v` to dump ALSA PCM setup information.
+
+Run with `env LIBASOUND_DEBUG=1` to debug ALSA problems.

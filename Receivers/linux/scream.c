@@ -23,6 +23,10 @@
 #include "pulseaudio.h"
 #endif
 
+#ifdef ALSA_ENABLE
+#include "alsa.h"
+#endif
+
 static void show_usage(const char *arg0)
 {
   fprintf(stderr, "\n");
@@ -42,6 +46,7 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "         -m <ivshmem device path>  : Use shared memory device.\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "         -o pulse|alsa|raw         : Send audio to PulseAudio, ALSA, or stdout.\n");
+  fprintf(stderr, "         -d <device>               : ALSA device name. 'default' if not specified.\n");
   fprintf(stderr, "         -t <latency>              : Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "                                     Only relevant for PulseAudio and ALSA output.\n");
   fprintf(stderr, "\n");
@@ -113,12 +118,13 @@ int main(int argc, char*argv[]) {
   char *multicast_group = NULL;
   char *ivshmem_device  = NULL;
   char *output          = NULL;
+  char *alsa_device     = "default";
   int target_latency_ms = 50;
   in_addr_t interface   = INADDR_ANY;
   uint16_t port         = DEFAULT_PORT;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:g:p:m:o:t:uvh")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:m:o:d:t:uvh")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
@@ -142,6 +148,9 @@ int main(int argc, char*argv[]) {
       if (strcmp(output,"pulse") == 0) output_mode = Pulseaudio;
       else if (strcmp(output,"alsa") == 0) output_mode = Alsa;
       else if (strcmp(output,"raw") == 0) output_mode = Raw;
+      break;
+    case 'd':
+      alsa_device = strdup(optarg);
       break;
     case 't':
       target_latency_ms = atoi(optarg);
@@ -179,7 +188,11 @@ int main(int argc, char*argv[]) {
       break;
     case Alsa:
 #ifdef ALSA_ENABLE
-      return 1;
+      if (verbosity) fprintf(stderr, "Using ALSA output\n");
+      if (alsa_output_init(target_latency_ms, alsa_device) != 0) {
+        return 1;
+      }
+      output_send_fn = alsa_output_send;
 #else
       fprintf(stderr, "%s compiled without ALSA support. Aborting\n", argv[0]);
       return 1;
