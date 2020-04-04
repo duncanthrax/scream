@@ -1,10 +1,20 @@
-# scream-pulse
+# scream
 
-scream-pulse is a scream receiver using pulseaudio as audio output.
+scream is a Scream audio receiver using Pulseaudio, ALSA or stdout as audio output.
 
 ## Compile
 
-You need pulseaudio headers in advance.
+Compilation is done using CMake.
+
+If Pulseaudio or ALSA headers are found, support for those will be compiled in (see below for distro packages to install). If Pulseaudio is compiled in, it will be the default output, otherwise ALSA will be the default. If both Pulseaudio and ALSA are not compiled in, raw/stdout will be the default.
+
+```shell
+$ mkdir build && cd build
+$ cmake ..
+$ make
+```
+
+### Pulseaudio
 
 ```shell
 $ sudo yum install pulseaudio-libs-devel # Redhat, CentOS, etc.
@@ -12,20 +22,33 @@ or
 $ sudo apt-get install libpulse-dev # Debian, Ubuntu, etc.
 ```
 
-Run `make` command.
+### ALSA
+
+```shell
+$ sudo yum install alsa-lib-devel # Redhat, CentOS, etc.
+or
+$ sudo apt-get install libasound2-dev # Debian, Ubuntu, etc.
+```
 
 ## Usage
 
+You can see the accepted options by using the -h (help) option.
+
 ```shell
-$ scream-pulse
+$ scream -h
 ```
 
-This starts the Scream client in multicast mode.
-If your machine has more than one network interface, you may need to
-set the interface name which receives scream packets.
+### Network mode
 
 ```shell
-$ scream-pulse -i eth0
+$ scream
+```
+
+This starts the Scream client in multicast mode, using the default audio output.
+Unicast mode is also supported, and can be used by passing the -u option. If your machine has more than one network interface, you may need to set the interface name which receives scream packets.
+
+```shell
+$ scream -i eth0
 ```
 
 ### IVSHMEM (Shared memory) mode
@@ -33,5 +56,5 @@ $ scream-pulse -i eth0
 Make sure to have read permission for the shared memory device and execute
 
 ```shell
-$ scream-pulse -m /dev/shm/scream-ivshmem
+$ scream -m /dev/shm/scream-ivshmem
 ```
