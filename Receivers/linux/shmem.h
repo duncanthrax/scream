@@ -29,7 +29,7 @@ typedef struct rctx_shmem {
   uint16_t read_idx;
 } rctx_shmem_t;
 
-void* init_shmem(char* shmem_device_file);
-void rcv_shmem(void* shmem_ctx, receiver_data_t* receiver_data);
+int init_shmem(char* shmem_device_file);
+void rcv_shmem(receiver_data_t* receiver_data);
 
 #endif

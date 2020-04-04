@@ -1,9 +1,9 @@
 #include "shmem.h"
 
-void* init_shmem(char* shmem_device_file)
-{
-  rctx_shmem_t* ctx = malloc(sizeof(rctx_shmem_t));
+static rctx_shmem_t rctx_shmem;
 
+int init_shmem(char* shmem_device_file)
+{
   struct stat st;
   if (stat(shmem_device_file, &st) < 0)  {
     fprintf(stderr, "Failed to stat the shared memory file: %s\n", shmem_device_file);
@@ -16,23 +16,22 @@ void* init_shmem(char* shmem_device_file)
     exit(3);
   }
 
-  ctx->mmap = mmap(0, st.st_size, PROT_READ, MAP_SHARED, shmFD, 0);
-  if (ctx->mmap == MAP_FAILED) {
+  rctx_shmem.mmap = mmap(0, st.st_size, PROT_READ, MAP_SHARED, shmFD, 0);
+  if (rctx_shmem.mmap == MAP_FAILED) {
     fprintf(stderr, "Failed to map the shared memory file: %s\n", shmem_device_file);
     close(shmFD);
     exit(4);
   }
 
-  struct shmheader *header = (struct shmheader*)ctx->mmap;
-  ctx->read_idx = header->write_idx;
+  struct shmheader *header = (struct shmheader*)rctx_shmem.mmap;
+  rctx_shmem.read_idx = header->write_idx;
 
-  return ctx;
+  return 0;
 }
 
-void rcv_shmem(void* shmem_ctx, receiver_data_t* receiver_data)
+void rcv_shmem(receiver_data_t* receiver_data)
 {
-  rctx_shmem_t* ctx = (rctx_shmem_t*)shmem_ctx;
-  struct shmheader *header = (struct shmheader*)ctx->mmap;
+  struct shmheader *header = (struct shmheader*)rctx_shmem.mmap;
 
   int valid = 0;
   do {
@@ -40,10 +39,10 @@ void rcv_shmem(void* shmem_ctx, receiver_data_t* receiver_data)
       while (header->magic != 0x11112014) {
         usleep(10000);//10ms
       }
-      ctx->read_idx = header->write_idx;
+      rctx_shmem.read_idx = header->write_idx;
       continue;
     }
-    if (ctx->read_idx == header->write_idx) {
+    if (rctx_shmem.read_idx == header->write_idx) {
       usleep(10000);//10ms
       continue;
     }
@@ -53,8 +52,8 @@ void rcv_shmem(void* shmem_ctx, receiver_data_t* receiver_data)
     valid = 1;
   } while (!valid);
 
-  if (++ctx->read_idx == header->max_chunks) {
-    ctx->read_idx = 0;
+  if (++rctx_shmem.read_idx == header->max_chunks) {
+    rctx_shmem.read_idx = 0;
   }
 
   receiver_data->format.sample_rate = header->sample_rate;
@@ -63,6 +62,6 @@ void rcv_shmem(void* shmem_ctx, receiver_data_t* receiver_data)
   receiver_data->format.channel_map = header->channel_map;
 
   receiver_data->audio_size = header->chunk_size;
-  receiver_data->audio = &ctx->mmap[header->offset+header->chunk_size*ctx->read_idx];
+  receiver_data->audio = &rctx_shmem.mmap[header->offset+header->chunk_size*rctx_shmem.read_idx];
 }
 

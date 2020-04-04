@@ -20,7 +20,7 @@ typedef struct rctx_network {
   unsigned char buf[MAX_SO_PACKETSIZE];
 } rctx_network_t;
 
-void* init_network(enum receiver_type receiver_mode, in_addr_t interface, int port, char* multicast_group);
-void rcv_network(void* network_ctx, receiver_data_t* receiver_data);
+int init_network(enum receiver_type receiver_mode, in_addr_t interface, int port, char* multicast_group);
+void rcv_network(receiver_data_t* receiver_data);
 
 #endif

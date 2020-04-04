@@ -90,8 +90,7 @@ int main(int argc, char*argv[]) {
   int error;
 
   // function pointer definition for receiver
-  void (*receiver_rcv_fn)(void* ctx, receiver_data_t* receiver_data);
-  void *receiver_ctx;
+  void (*receiver_rcv_fn)(receiver_data_t* receiver_data);
   receiver_data_t receiver_data;
 
   int (*output_send_fn)(receiver_data_t* receiver_data);
@@ -189,21 +188,21 @@ int main(int argc, char*argv[]) {
   switch (receiver_mode) {
     case SharedMem:
       printf("Starting IVSHMEM receiver\n");
-      receiver_ctx = init_shmem(ivshmem_device);
+      init_shmem(ivshmem_device);
       receiver_rcv_fn = rcv_shmem;
       break;
     case Unicast:
     case Multicast:
     default:
       printf("Starting %s receiver\n", receiver_mode == Unicast ? "unicast" : "multicast");
-      receiver_ctx = init_network(receiver_mode, interface, port, multicast_group);
+      init_network(receiver_mode, interface, port, multicast_group);
       receiver_rcv_fn = rcv_network;
       break;
   }
 
 
   for (;;) {
-    receiver_rcv_fn(receiver_ctx, &receiver_data);
+    receiver_rcv_fn(&receiver_data);
     if (output_send_fn(&receiver_data) != 0)
       return 1;
   }
