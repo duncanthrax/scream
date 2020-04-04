@@ -183,5 +183,5 @@ int pulse_output_send(receiver_data_t *data)
     pulse_output_destroy();
     return 1;
   }
-
+  return 0;
 }

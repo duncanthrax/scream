@@ -17,6 +17,8 @@
 #include "network.h"
 #include "shmem.h"
 
+#include "raw.h"
+
 #ifdef PULSEAUDIO_ENABLE
 #include "pulseaudio.h"
 #endif
@@ -42,6 +44,8 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "         -o pulse|alsa|raw         : Send audio to PulseAudio, ALSA, or stdout.\n");
   fprintf(stderr, "         -t <latency>              : Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "                                     Only relevant for PulseAudio and ALSA output.\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "         -v                        : Be verbose.\n");
   fprintf(stderr, "\n");
   exit(1);
 }
@@ -114,7 +118,7 @@ int main(int argc, char*argv[]) {
   uint16_t port         = DEFAULT_PORT;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:g:p:m:o:t:uh")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:m:o:t:uvh")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
@@ -143,6 +147,9 @@ int main(int argc, char*argv[]) {
       target_latency_ms = atoi(optarg);
       if (target_latency_ms < 0) show_usage(argv[0]);
       break;
+    case 'v':
+      verbosity += 1;
+      break;
     default:
       show_usage(argv[0]);
     }
@@ -160,7 +167,7 @@ int main(int argc, char*argv[]) {
   switch (output_mode) {
     case Pulseaudio:
 #ifdef PULSEAUDIO_ENABLE
-      printf("Using Pulseaudio output\n");
+      if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
       if (pulse_output_init(target_latency_ms) != 0) {
         return 1;
       }
@@ -179,7 +186,11 @@ int main(int argc, char*argv[]) {
 #endif
       break;
     case Raw:
-      return 1;
+      if (verbosity) fprintf(stderr, "Using raw output\n");
+      if (raw_output_init() != 0) {
+        return 1;
+      }
+      output_send_fn = raw_output_send;
     default:
       break;
   }
@@ -187,14 +198,14 @@ int main(int argc, char*argv[]) {
   // initialize receiver
   switch (receiver_mode) {
     case SharedMem:
-      printf("Starting IVSHMEM receiver\n");
+      if (verbosity) fprintf(stderr, "Starting IVSHMEM receiver\n");
       init_shmem(ivshmem_device);
       receiver_rcv_fn = rcv_shmem;
       break;
     case Unicast:
     case Multicast:
     default:
-      printf("Starting %s receiver\n", receiver_mode == Unicast ? "unicast" : "multicast");
+      if (verbosity) fprintf(stderr, "Starting %s receiver\n", receiver_mode == Unicast ? "unicast" : "multicast");
       init_network(receiver_mode, interface, port, multicast_group);
       receiver_rcv_fn = rcv_network;
       break;

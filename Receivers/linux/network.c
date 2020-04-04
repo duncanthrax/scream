@@ -4,7 +4,6 @@ static rctx_network_t rctx_network;
 
 int init_network(enum receiver_type receiver_mode, in_addr_t interface, int port, char* multicast_group)
 {
-//   rctx_network_t* ctx = malloc(sizeof(rctx_network_t));
   rctx_network.sockfd = socket(AF_INET,SOCK_DGRAM,0);
 
   memset((void *)&(rctx_network.servaddr), 0, sizeof(rctx_network.servaddr));
