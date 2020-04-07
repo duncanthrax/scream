@@ -5,10 +5,13 @@ project(scream)
 add_executable(${PROJECT_NAME} scream.c network.c shmem.c raw.c)
 
 # find pulseaudio
-find_package(PulseAudio)
+find_package(PkgConfig)
+pkg_check_modules(PULSEAUDIO libpulse-simple)
+
 if (PULSEAUDIO_FOUND)
   include_directories(${PULSEAUDIO_INCLUDE_DIRS})
-  target_link_libraries(${PROJECT_NAME} pulse pulse-simple)
+  target_link_directories(${PROJECT_NAME} PUBLIC ${PULSEAUDIO_LIBRARY_DIRS})
+  target_link_libraries(${PROJECT_NAME} ${PULSEAUDIO_LIBRARIES})
   target_sources(${PROJECT_NAME} PRIVATE pulseaudio.c)
   option(PULSEAUDIO_ENABLE "Enable PulseAudio" ON)
 endif (PULSEAUDIO_FOUND)
