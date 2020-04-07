@@ -40,10 +40,10 @@ Receivers
 - Unix with Pulseaudio or ALSA: Not included in the installer package.
 Please see [the README in the Receivers/unix folder](https://github.com/duncanthrax/scream/tree/master/Receivers/unix).
 Various contributors have written code for this receiver:
-* @ivan: Original ALSA code.
-* @martinellimarco: IVSHMEM support.
-* @accumulator: Refactoring into single binary and cmake support.
-* @F5OEO: Raw output support.
+    * @ivan: Original ALSA code.
+    * @martinellimarco: IVSHMEM support.
+    * @accumulator: Refactoring into single binary and cmake support.
+    * @F5OEO: Raw output support.
 
 - Windows: ScreamReader, contributed by @MrShoenel. Included in
 the installer package as of version 1.2. This receiver does not
