@@ -5,9 +5,8 @@ discrete sound device. Audio played through this device is
 published on your local network as a PCM multicast stream.
 
 Receivers on the network can pick up the stream and play it
-through their own audio outputs. Two simple receivers for Linux
-(interfacing with PulseAudio or ALSA) and one for Windows are
-provided.
+through their own audio outputs. Receivers are available for
+Unix/Linux (interfacing with PulseAudio or ALSA) and for Windows.
 
 For the special scenario of a Windows guest on a QEMU host,
 @martinellimarco has contributed support for transferring audio
@@ -38,13 +37,13 @@ For more information, see [this issue](https://github.com/duncanthrax/scream/iss
 
 Receivers
 ---------------------------------------------------------------
-- Linux/Pulseaudio: Not included in the installer package. Just
-type 'make' to build it. You might need to install build tools
-and Pulseaudio development packages.
-
-- Linux/ALSA: Originally contributed by @ivan. Not included in
-the installer package. Just type 'make' to build it.You might
-need to install build tools and ALSA development packages.
+- Unix with Pulseaudio or ALSA: Not included in the installer package.
+Please see [the README in the Receivers/unix folder](https://github.com/duncanthrax/scream/tree/master/Receivers/unix).
+Various contributors have written code for this receiver:
+* @ivan: Original ALSA code.
+* @martinellimarco: IVSHMEM support.
+* @accumulator: Refactoring into single binary and cmake support.
+* @F5OEO: Raw output support.
 
 - Windows: ScreamReader, contributed by @MrShoenel. Included in
 the installer package as of version 1.2. This receiver does not
@@ -52,7 +51,7 @@ support positional mapping of multichannel (more than stereo)
 setups - meaning a mismatch in speaker setup can lead to channels
 being played in the wrong position.
 
-All three receivers can be run as unprivileged users. Receiver
+All receivers can be run as unprivileged users. Receiver
 systems that have an input firewall need to open UDP port 4010,
 or whatever custom port you use.
 
