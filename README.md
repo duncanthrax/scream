@@ -161,7 +161,7 @@ admin CMD shell to create both key and DWORD: `REG ADD HKLM\SYSTEM\CurrentContro
 and if the user you want to run the receiver as has read access.
 If so, run a IVSHMEM-capable receiver with the path of the SHM file
 as commandline parameter, for example:
-```scream-ivshmem-pulse /dev/shm/scream-ivshmem```
+```scream -m /dev/shm/scream-ivshmem```
 
 Building
 -------------------------------------------------------------
