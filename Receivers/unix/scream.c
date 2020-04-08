@@ -19,11 +19,11 @@
 
 #include "raw.h"
 
-#ifdef PULSEAUDIO_ENABLE
+#if PULSEAUDIO_ENABLE
 #include "pulseaudio.h"
 #endif
 
-#ifdef ALSA_ENABLE
+#if ALSA_ENABLE
 #include "alsa.h"
 #endif
 
@@ -107,7 +107,7 @@ int main(int argc, char*argv[]) {
   // Command line options
   enum receiver_type receiver_mode = Multicast;
 
-#ifdef PULSEAUDIO_ENABLE
+#if PULSEAUDIO_ENABLE
   enum output_type output_mode = Pulseaudio;
 #elif ALSA_ENABLE
   enum output_type output_mode = Alsa;
@@ -175,7 +175,7 @@ int main(int argc, char*argv[]) {
   // initialize output
   switch (output_mode) {
     case Pulseaudio:
-#ifdef PULSEAUDIO_ENABLE
+#if PULSEAUDIO_ENABLE
       if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
       if (pulse_output_init(target_latency_ms) != 0) {
         return 1;
@@ -187,7 +187,7 @@ int main(int argc, char*argv[]) {
 #endif
       break;
     case Alsa:
-#ifdef ALSA_ENABLE
+#if ALSA_ENABLE
       if (verbosity) fprintf(stderr, "Using ALSA output\n");
       if (alsa_output_init(target_latency_ms, alsa_device) != 0) {
         return 1;

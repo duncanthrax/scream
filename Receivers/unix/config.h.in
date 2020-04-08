@@ -1,2 +1,2 @@
-#cmakedefine PULSEAUDIO_ENABLE
-#cmakedefine ALSA_ENABLE
+#cmakedefine01 PULSEAUDIO_ENABLE
+#cmakedefine01 ALSA_ENABLE
