@@ -62,6 +62,11 @@ int setup_alsa(snd_pcm_t **psnd, snd_pcm_format_t format, unsigned int rate, uns
       // It's possible to reorder the channels in software. Maybe a place to start is the remap_data function in aplay.c
     }
   }
+  else if (ret == -EBADFD) {
+    if (channels > 2) {
+      fprintf(stderr, "It was not possible to set the channel map. You are limited to use stereo. See https://github.com/duncanthrax/scream/issues/79\n");
+    }
+  }
   else {
     SNDCHK("snd_pcm_set_chmap", ret);
   }
