@@ -8,9 +8,10 @@ static struct pulse_output_data {
 
   receiver_format_t receiver_format;
   int latency;
+  char *stream_name;
 } po_data;
 
-int pulse_output_init(int latency)
+int pulse_output_init(int latency, char *stream_name)
 {
   int error;
 
@@ -32,6 +33,7 @@ int pulse_output_init(int latency)
   po_data.receiver_format.channel_map = 0x0003;
 
   po_data.latency = latency;
+  po_data.stream_name = stream_name;
 
   // set buffer size for requested latency
   po_data.buffer_attr.maxlength = (uint32_t)-1;
@@ -44,7 +46,7 @@ int pulse_output_init(int latency)
     "Scream",
     PA_STREAM_PLAYBACK,
     NULL,
-    "Audio",
+    po_data.stream_name,
     &po_data.ss,
     &po_data.channel_map,
     &po_data.buffer_attr,
@@ -161,7 +163,7 @@ int pulse_output_send(receiver_data_t *data)
         "Scream",
         PA_STREAM_PLAYBACK,
         NULL,
-        "Audio",
+        po_data.stream_name,
         &po_data.ss,
         &po_data.channel_map,
         &po_data.buffer_attr,
