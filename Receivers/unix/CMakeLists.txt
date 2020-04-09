@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.7)
 
-project(scream)
+project(scream LANGUAGES C)
 
 add_executable(${PROJECT_NAME} scream.c network.c shmem.c raw.c)
 
