@@ -1,0 +1,17 @@
+name: Build Unix Receiver
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: [ ubuntu-latest, ubuntu-20.04, ubuntu-18.04 ]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: make
+      run: cd Receivers/unix && cmake . && make
