@@ -226,6 +226,7 @@
     <FilesToPackage Include="@(Inf->'%(CopyOutput)')" Condition="'@(Inf)'!=''" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ac3encoder.cpp" />
     <ClCompile Include="adapter.cpp" />
     <ClCompile Include="common.cpp" />
     <ClCompile Include="hw.cpp" />
@@ -237,6 +238,7 @@
     <ClCompile Include="savedata.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ac3encoder.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="hw.h" />
     <ClInclude Include="ivshmemsavedata.h" />
@@ -246,6 +248,7 @@
     <ClInclude Include="minwave.h" />
     <ClInclude Include="netiodef.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="rtpheader.h" />
     <ClInclude Include="savedata.h" />
     <ClInclude Include="scream.h" />
     <ClInclude Include="toptable.h" />
