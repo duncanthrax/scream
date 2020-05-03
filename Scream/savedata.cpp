@@ -14,6 +14,12 @@
 #define NUM_CHUNKS          800                         // How many payloads in ring buffer
 #define BUFFER_SIZE         CHUNK_SIZE * NUM_CHUNKS     // Ring buffer size
 
+#define AC3_PAYLOAD_SIZE    1024    // AC3 Payload size (48 kHz, Stereo, 256 kbps). Currently, this is fixed. Might be extended.
+#define RTP_HEADER_SIZE     12
+#define RTP_AC3_HEADER_SIZE 2
+#define RTP_AC3_CHUNK_SIZE  (AC3_PAYLOAD_SIZE + RTP_HEADER_SIZE + RTP_AC3_HEADER_SIZE)
+#define RTP_AC3_BUFFER_SIZE RTP_AC3_CHUNK_SIZE * NUM_CHUNKS
+
 //=============================================================================
 // Statics
 //=============================================================================
@@ -50,6 +56,9 @@ CSaveData::CSaveData() : m_pBuffer(NULL), m_ulOffset(0), m_ulSendOffset(0), m_fW
     PAGED_CODE();
 
     DPF_ENTER(("[CSaveData::CSaveData]"));
+
+    m_ulBufferSize  = g_UseRtpAc3 ? RTP_AC3_BUFFER_SIZE : BUFFER_SIZE;
+    m_ulChunkSize   = g_UseRtpAc3 ? RTP_AC3_CHUNK_SIZE : CHUNK_SIZE;
     
     if (!g_UseIVSHMEM) {
         WSK_CLIENT_NPI   wskClientNpi;
@@ -156,34 +165,38 @@ PDEVICE_OBJECT CSaveData::GetDeviceObject(void) {
 NTSTATUS CSaveData::Initialize(DWORD nSamplesPerSec, WORD wBitsPerSample, WORD nChannels, DWORD dwChannelMask) {
     PAGED_CODE();
 
-    NTSTATUS          ntStatus = STATUS_SUCCESS;
-
     DPF_ENTER(("[CSaveData::Initialize]"));
-    
+
     // Only multiples of 44100 and 48000 are supported
-    m_bSamplingFreqMarker  = (BYTE)((nSamplesPerSec % 44100) ? (0 + (nSamplesPerSec / 48000)) : (128 + (nSamplesPerSec / 44100)));
+    m_bSamplingFreqMarker = (BYTE)((nSamplesPerSec % 44100) ? (0 + (nSamplesPerSec / 48000)) : (128 + (nSamplesPerSec / 44100)));
     m_bBitsPerSampleMarker = (BYTE)(wBitsPerSample);
     m_bChannels = (BYTE)nChannels;
     m_wChannelMask = (WORD)dwChannelMask;
 
-    // Allocate memory for data buffer.
-    if (NT_SUCCESS(ntStatus)) {
-        m_pBuffer = (PBYTE) ExAllocatePoolWithTag(NonPagedPool, BUFFER_SIZE, MSVAD_POOLTAG);
-        if (!m_pBuffer) {
-            DPF(D_TERSE, ("[Could not allocate memory for sending data]"));
-            ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+    NTSTATUS ntStatus = STATUS_SUCCESS;
+    if (g_UseRtpAc3) {
+        if (nSamplesPerSec != 48000) {
+            return STATUS_INVALID_PARAMETER_1;
         }
+        if (wBitsPerSample != 16) {
+            return STATUS_INVALID_PARAMETER_2;
+        }
+        if (wBitsPerSample != 2) {
+            return STATUS_INVALID_PARAMETER_3;
+        }
+
+        ntStatus = m_ac3Encoder.Initialize(nSamplesPerSec, nChannels);
+
+        m_rtpHeader.v = 2;
+        m_rtpHeader.m = 1;
+        m_rtpHeader.pt = 96;
+        m_rtpSeq = rand();
+        m_rtpTs = rand();
+        m_rtpHeader.ssrc = rand();
     }
 
-    // Allocate MDL for the data buffer
     if (NT_SUCCESS(ntStatus)) {
-        m_pMdl = IoAllocateMdl(m_pBuffer, BUFFER_SIZE, FALSE, FALSE, NULL);
-        if (m_pMdl == NULL) {
-            DPF(D_TERSE, ("[Failed to allocate MDL]"));
-            ntStatus = STATUS_INSUFFICIENT_RESOURCES;
-        } else {
-            MmBuildMdlForNonPagedPool(m_pMdl);
-        }
+        ntStatus = AllocBuffer(m_ulBufferSize);
     }
 
     return ntStatus;
@@ -211,6 +224,34 @@ VOID SendDataWorkerCallback(PDEVICE_OBJECT pDeviceObject, IN  PVOID  Context) {
 
     KeSetEvent(&(pParam->EventDone), 0, FALSE);
 } // SendDataWorkerCallback
+
+NTSTATUS CSaveData::AllocBuffer(SIZE_T nBufferSize)
+{
+    NTSTATUS ntStatus = STATUS_SUCCESS;
+
+    // Allocate memory for data buffer.
+    if (NT_SUCCESS(ntStatus)) {
+        m_pBuffer = (PBYTE)ExAllocatePoolWithTag(NonPagedPool, nBufferSize, MSVAD_POOLTAG);
+        if (!m_pBuffer) {
+            DPF(D_TERSE, ("[Could not allocate memory for sending data]"));
+            ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+        }
+    }
+
+    // Allocate MDL for the data buffer
+    if (NT_SUCCESS(ntStatus)) {
+        m_pMdl = IoAllocateMdl(m_pBuffer, nBufferSize, FALSE, FALSE, NULL);
+        if (m_pMdl == NULL) {
+            DPF(D_TERSE, ("[Failed to allocate MDL]"));
+            ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+        }
+        else {
+            MmBuildMdlForNonPagedPool(m_pMdl);
+        }
+    }
+
+    return ntStatus;
+}
 
 #pragma code_seg()
 //=============================================================================
@@ -296,6 +337,74 @@ void CSaveData::CreateSocket(void) {
 }
 
 //=============================================================================
+BOOL CSaveData::WriteScreamData(IN PBYTE pBuffer, IN ULONG ulByteCount) {
+    // Append to ring buffer. Don't write intermediate states to m_ulOffset,
+    // but update it once at the end.
+    auto offset = m_ulOffset;
+    auto toWrite = ulByteCount;
+    ULONG w = 0;
+    while (toWrite > 0) {
+        w = offset % m_ulChunkSize;
+        if (w > 0) {
+            // Fill up last chunk
+            w = (m_ulChunkSize - w);
+            w = (toWrite < w) ? toWrite : w;
+            RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
+        }
+        else {
+            // Start a new chunk
+            m_pBuffer[offset] = m_bSamplingFreqMarker;
+            m_pBuffer[offset + 1] = m_bBitsPerSampleMarker;
+            m_pBuffer[offset + 2] = m_bChannels;
+            m_pBuffer[offset + 3] = (BYTE)(m_wChannelMask & 0xFF);
+            m_pBuffer[offset + 4] = (BYTE)(m_wChannelMask >> 8 & 0xFF);
+            offset += HEADER_SIZE;
+            w = ((m_ulBufferSize - offset) < toWrite) ? (m_ulBufferSize - offset) : toWrite;
+            w = (w > PCM_PAYLOAD_SIZE) ? PCM_PAYLOAD_SIZE : w;
+            RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
+        }
+        toWrite -= w;
+        offset += w;  if (offset >= m_ulBufferSize) offset = 0;
+    }
+    m_ulOffset = offset;
+
+    return TRUE;
+}
+
+//=============================================================================
+BOOL CSaveData::WriteRtpAc3Data(IN PBYTE pBuffer, IN ULONG ulByteCount) {
+    auto outSample = m_ac3Encoder.Process(pBuffer, ulByteCount);
+    if (!outSample) {
+        return FALSE;
+    }
+
+    m_rtpHeader.seq = _byteswap_ushort(m_rtpSeq);
+    m_rtpHeader.ts = _byteswap_ulong(m_rtpTs);
+
+    IMFMediaBuffer* buffer = nullptr;
+    outSample->GetBufferByIndex(0, &buffer);
+    BYTE* ac3Data;
+    DWORD maxAc3Length, currentAc3Length;
+    buffer->Lock(&ac3Data, &maxAc3Length, &currentAc3Length);
+
+    RtlCopyMemory(&(m_pBuffer[m_ulOffset]), &m_rtpHeader, sizeof(RtpHeader));
+    m_ulOffset += RTP_HEADER_SIZE;
+    m_pBuffer[m_ulOffset] = 0;
+    m_pBuffer[m_ulOffset + 1] = 1;
+    m_ulOffset += 2;
+    RtlCopyMemory(&(m_pBuffer[m_ulOffset]), ac3Data, currentAc3Length);
+    m_ulOffset += currentAc3Length;
+    
+    buffer->Unlock();
+    m_ac3Encoder.ReleaseSample(outSample);
+
+    ++m_rtpSeq;
+    m_rtpTs += 1536;
+
+    return TRUE;
+}
+
+//=============================================================================
 void CSaveData::SendData() {
     WSK_BUF wskbuf;
 
@@ -311,12 +420,12 @@ void CSaveData::SendData() {
             storeOffset = m_ulOffset;
 
             // Abort if there's nothing to send. Note: When storeOffset < sendOffset, we can always send a chunk.
-            if ((storeOffset >= m_ulSendOffset) && ((storeOffset - m_ulSendOffset) < CHUNK_SIZE))
+            if ((storeOffset >= m_ulSendOffset) && ((storeOffset - m_ulSendOffset) < m_ulChunkSize))
                 break;
 
             // Send a chunk
             wskbuf.Mdl = m_pMdl;
-            wskbuf.Length = CHUNK_SIZE;
+            wskbuf.Length = m_ulChunkSize;
             wskbuf.Offset = m_ulSendOffset;
             IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
             IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
@@ -324,7 +433,7 @@ void CSaveData::SendData() {
             KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
             DPF(D_TERSE, ("WskSendTo: %x", m_irp->IoStatus.Status));
 
-            m_ulSendOffset += CHUNK_SIZE; if (m_ulSendOffset >= BUFFER_SIZE) m_ulSendOffset = 0;
+            m_ulSendOffset += m_ulChunkSize; if (m_ulSendOffset >= m_ulBufferSize) m_ulSendOffset = 0;
         }
     }
 }
@@ -364,44 +473,25 @@ void CSaveData::WriteData(IN PBYTE pBuffer, IN ULONG ulByteCount) {
     }
 
     // Oversized (paranoia)
-    if (ulByteCount > (CHUNK_SIZE * NUM_CHUNKS / 2)) {
+    if (ulByteCount > (m_ulChunkSize * NUM_CHUNKS / 2)) {
         return;
     }
 
-    // Append to ring buffer. Don't write intermediate states to m_ulOffset,
-    // but update it once at the end.
-    offset = m_ulOffset;
-    toWrite = ulByteCount;
-    while (toWrite > 0) {
-        w = offset % CHUNK_SIZE;
-        if (w > 0) {
-            // Fill up last chunk
-            w = (CHUNK_SIZE - w);
-            w = (toWrite < w) ? toWrite : w;
-            RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
-        }
-        else {
-            // Start a new chunk
-            m_pBuffer[offset]     = m_bSamplingFreqMarker;
-            m_pBuffer[offset + 1] = m_bBitsPerSampleMarker;
-            m_pBuffer[offset + 2] = m_bChannels;
-            m_pBuffer[offset + 3] = (BYTE)(m_wChannelMask    & 0xFF);
-            m_pBuffer[offset + 4] = (BYTE)(m_wChannelMask>>8 & 0xFF);
-            offset += HEADER_SIZE;
-            w = ((BUFFER_SIZE - offset) < toWrite) ? (BUFFER_SIZE - offset) : toWrite;
-            w = (w > PCM_PAYLOAD_SIZE) ? PCM_PAYLOAD_SIZE : w;
-            RtlCopyMemory(&(m_pBuffer[offset]), &(pBuffer[ulByteCount - toWrite]), w);
-        }
-        toWrite -= w;
-        offset += w;  if (offset >= BUFFER_SIZE) offset = 0;
+    BOOL dataWritten = false;
+    if (g_UseRtpAc3) {
+        dataWritten = WriteRtpAc3Data(pBuffer, ulByteCount);
     }
-    m_ulOffset = offset;
+    else {
+        dataWritten = WriteScreamData(pBuffer, ulByteCount);
+    }
 
     // If I/O worker was done, relaunch it
-    ntStatus = KeWaitForSingleObject(&(m_pWorkItem->EventDone), Executive, KernelMode, FALSE, &timeOut);
-    if (STATUS_SUCCESS == ntStatus) {
+    if (dataWritten) {
+        ntStatus = KeWaitForSingleObject(&(m_pWorkItem->EventDone), Executive, KernelMode, FALSE, &timeOut);
+        if (STATUS_SUCCESS == ntStatus) {
             m_pWorkItem->pSaveData = this;
             KeResetEvent(&(m_pWorkItem->EventDone));
             IoQueueWorkItem(m_pWorkItem->WorkItem, SendDataWorkerCallback, CriticalWorkQueue, (PVOID)m_pWorkItem);
+        }
     }
 } // WriteData

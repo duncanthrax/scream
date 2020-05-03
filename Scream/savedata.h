@@ -15,6 +15,9 @@
 
 #pragma warning(pop)
 
+#include "ac3encoder.h"
+#include "rtpheader.h"
+
 //-----------------------------------------------------------------------------
 //  Forward declaration
 //-----------------------------------------------------------------------------
@@ -52,6 +55,8 @@ protected:
     PIRP                        m_irp;
     KEVENT                      m_syncEvent;
     
+    ULONG                       m_ulBufferSize;
+    ULONG                       m_ulChunkSize;
     PBYTE                       m_pBuffer;
     ULONG                       m_ulOffset;
     ULONG                       m_ulSendOffset;
@@ -68,6 +73,10 @@ protected:
     BYTE                        m_bBitsPerSampleMarker;
     BYTE                        m_bChannels;
     WORD                        m_wChannelMask;
+    Ac3Encoder                  m_ac3Encoder;
+    RtpHeader                   m_rtpHeader;
+    UINT16                      m_rtpSeq;
+    UINT32                      m_rtpTs;
 
 public:
     CSaveData();
@@ -85,9 +94,12 @@ public:
     void                        WriteData(IN PBYTE pBuffer, IN ULONG ulByteCount);
 
 private:
+    NTSTATUS                    AllocBuffer(SIZE_T nBufferSize);
     static NTSTATUS             InitializeWorkItem(IN PDEVICE_OBJECT DeviceObject);
 
     void                        CreateSocket(void);
+    BOOL                        WriteScreamData(IN PBYTE pBuffer, IN ULONG ulByteCount);
+    BOOL                        WriteRtpAc3Data(IN PBYTE pBuffer, IN ULONG ulByteCount);
     void                        SendData();
     friend VOID                 SendDataWorkerCallback(PDEVICE_OBJECT pDeviceObject, IN PVOID Context);
 };
