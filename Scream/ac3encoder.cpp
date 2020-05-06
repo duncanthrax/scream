@@ -1,7 +1,11 @@
+#include "stdafx.h"
 #include "ac3encoder.h"
 
 #include <mfapi.h>
 #include <mferror.h>
+
+#pragma comment(lib, "mfplat.lib")
+#pragma comment(lib, "mfuuid.lib")
 
 template<class T>
 void SafeRelease(T **ppT)
@@ -60,6 +64,10 @@ HRESULT Ac3Encoder::Initialize(UINT32 sampleRate, UINT32 numChannels)
         hr = CoCreateInstance(clsids[0], NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&m_transform));
     }
 
+    if (!SUCCEEDED(hr)) {
+        return hr;
+    }
+
     // Create and set output type
     MFCreateMediaType(&m_outputType);
     m_outputType->SetGUID(MF_MT_MAJOR_TYPE, outInfo.guidMajorType);
@@ -103,7 +111,7 @@ IMFSample* Ac3Encoder::Process(void *inBuffer, UINT32 inSize)
     // transform back in accepting state.
     if (outSample) {
         while (auto sample = ProcessOutput()) {
-            ReleaseSample(sample);
+            sample->Release();
         }
     }
 
@@ -145,16 +153,6 @@ void Ac3Encoder::ProcessInput(void *inSamples, UINT32 inSize)
 
     pSample->Release();
     pBuffer->Release();
-}
-
-void Ac3Encoder::ReleaseSample(IMFSample *sample)
-{
-    IMFMediaBuffer* buffer = nullptr;
-    sample->GetBufferByIndex(0, &buffer);
-
-    sample->Release();
-    // No idea why, but we have to release the buffer twice.
-    while (buffer->Release()) {};
 }
 
 void Ac3Encoder::Drain()

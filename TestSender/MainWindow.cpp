@@ -70,13 +70,13 @@ void MainWindow::on_sendIntervalSlider_valueChanged(int value)
 void MainWindow::onTimeout()
 {
     static uint32_t i = 0;
-    std::array<int16_t, 1536*2-16> samples;
+    std::array<int16_t, 1536*2> samples;
     for (size_t j = 0; j < samples.size(); j += 2) {
         samples[j] = 16384*sin(m_testFrequency * 2 * M_PI * ++i / m_samplerate);
         samples[j+1] = samples[j];
     }
 
-    if (auto sample = m_encoder.Process(samples.data(), samples.size()*2)) {
+    if (auto sample = m_encoder.Process(samples.data(), samples.size()*sizeof(int16_t))) {
         s_rtpheader.seq = _byteswap_ushort(s_seq);
         s_rtpheader.ts = _byteswap_ulong(s_ts);
 
@@ -92,7 +92,8 @@ void MainWindow::onTimeout()
         rtpPacket.append(char(1));
         rtpPacket.append((const char*)ac3Data, currentAc3Length);
         buffer->Unlock();
-        m_encoder.ReleaseSample(sample);
+        buffer->Release();
+        sample->Release();
 
         m_socket.writeDatagram(rtpPacket, QHostAddress("239.255.77.77"), 4010);
 

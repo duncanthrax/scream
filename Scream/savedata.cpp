@@ -396,7 +396,8 @@ BOOL CSaveData::WriteRtpAc3Data(IN PBYTE pBuffer, IN ULONG ulByteCount) {
     m_ulOffset += currentAc3Length;
     
     buffer->Unlock();
-    m_ac3Encoder.ReleaseSample(outSample);
+    buffer->Release();
+    outSample->Release();
 
     ++m_rtpSeq;
     m_rtpTs += 1536;

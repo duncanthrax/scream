@@ -14,7 +14,6 @@ public:
     void SetBitrate(UINT32 kbps);
 
     IMFSample* Process(void *inSamples, UINT32 inSize);
-    void ReleaseSample(IMFSample *sample);
 
     void Drain();
 
