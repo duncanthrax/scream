@@ -29,6 +29,10 @@ int init_shmem(char* shmem_device_file)
   return 0;
 }
 
+int32_t mod(int32_t x, int32_t N){
+    return (x % N + N) %N;
+}
+
 void rcv_shmem(receiver_data_t* receiver_data)
 {
   struct shmheader *header = (struct shmheader*)rctx_shmem.mmap;
@@ -54,6 +58,10 @@ void rcv_shmem(receiver_data_t* receiver_data)
 
   if (++rctx_shmem.read_idx == header->max_chunks) {
     rctx_shmem.read_idx = 0;
+  }
+
+  if(mod(header->write_idx-rctx_shmem.read_idx, header->max_chunks) > 3){//we are too far behind, skip forward
+    rctx_shmem.read_idx = mod((header->write_idx-1), header->max_chunks);
   }
 
   receiver_data->format.sample_rate = header->sample_rate;
