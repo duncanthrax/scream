@@ -50,6 +50,8 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "         -n <stream name>          : Pulseaudio stream name/description.\n");
   fprintf(stderr, "         -t <latency>              : Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "                                     Only relevant for PulseAudio and ALSA output.\n");
+  fprintf(stderr, "         -l <latency>              : Max latency in milliseconds. Defaults to 200ms.\n");
+  fprintf(stderr, "                                     Only relevant for PulseAudio output.\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "         -v                        : Be verbose.\n");
   fprintf(stderr, "\n");
@@ -122,11 +124,12 @@ int main(int argc, char*argv[]) {
   char *alsa_device     = "default";
   char *stream_name     = "Audio";
   int target_latency_ms = 50;
+  int target_max_latency_ms = 200;
   in_addr_t interface   = INADDR_ANY;
   uint16_t port         = DEFAULT_PORT;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:g:p:m:o:d:n:t:uvh")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:m:o:d:n:t:l:uvh")) != -1) {
     switch (opt) {
     case 'i':
       interface = get_interface(optarg);
@@ -161,6 +164,10 @@ int main(int argc, char*argv[]) {
       target_latency_ms = atoi(optarg);
       if (target_latency_ms < 0) show_usage(argv[0]);
       break;
+    case 'l':
+      target_max_latency_ms = atoi(optarg);
+      if (target_max_latency_ms < 0) show_usage(argv[0]);
+      break;
     case 'v':
       verbosity += 1;
       break;
@@ -182,7 +189,7 @@ int main(int argc, char*argv[]) {
     case Pulseaudio:
 #if PULSEAUDIO_ENABLE
       if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
-      if (pulse_output_init(target_latency_ms, stream_name) != 0) {
+      if (pulse_output_init(target_latency_ms, target_max_latency_ms, stream_name) != 0) {
         return 1;
       }
       output_send_fn = pulse_output_send;
