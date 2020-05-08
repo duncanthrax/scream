@@ -51,6 +51,23 @@ Unicast mode is also supported, and can be used by passing the -u option. If you
 $ scream -i eth0
 ```
 
+### libpcap mode
+
+This starts the Scream client in libpcap (sniffer) mode. This mode is mostly useful if you are able to the UDP
+multicast/unicast transmission in `wireshark`/`tcpdump` but unable to have it be delivered to the
+user-space Scream client.
+
+```shell
+$ scream -P -i macvtap0
+```
+
+If you have the hard requirement of having to run the receiver as non-root due to `pulseaudio`/`alsa`
+uid/gid issues, you can do the following:
+
+```shell
+# setcap cap_net_raw,cap_net_admin=eip ./scream
+```
+
 ### IVSHMEM (Shared memory) mode
 
 Make sure to have read permission for the shared memory device and execute

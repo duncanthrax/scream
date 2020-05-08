@@ -33,6 +33,20 @@ if (ALSA_ENABLE)
   endif ()
 endif ()
 
+# find libpcap
+option(PCAP_ENABLE "Enable PCAP" ON)
+if (PCAP_ENABLE)
+  find_package(PkgConfig)
+  pkg_check_modules(PC_PCAP libpcap)
+  if (PC_PCAP_FOUND)
+    include_directories(${PC_PCAP_INCLUDEDIR})
+    target_link_libraries(${PROJECT_NAME} ${PC_PCAP_LIBRARIES})
+    target_sources(${PROJECT_NAME} PRIVATE pcap.c)
+  else ()
+    set(PCAP_ENABLE OFF)
+  endif ()
+endif ()
+
 configure_file(config.h.in config.h)
 target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
 

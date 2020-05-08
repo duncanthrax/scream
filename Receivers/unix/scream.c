@@ -18,6 +18,7 @@
 #include "shmem.h"
 
 #include "raw.h"
+#include <errno.h>
 
 #if PULSEAUDIO_ENABLE
 #include "pulseaudio.h"
@@ -25,6 +26,10 @@
 
 #if ALSA_ENABLE
 #include "alsa.h"
+#endif
+
+#if PCAP_ENABLE
+#include "pcap.h"
 #endif
 
 static void show_usage(const char *arg0)
@@ -44,6 +49,7 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "                                     In unicast, binds to this interface only.\n");
   fprintf(stderr, "         -g <group>                : Multicast group address. Multicast mode only.\n");
   fprintf(stderr, "         -m <ivshmem device path>  : Use shared memory device.\n");
+  fprintf(stderr, "         -P                        : Use libpcap to sniff the packets.\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "         -o pulse|alsa|raw         : Send audio to PulseAudio, ALSA, or stdout.\n");
   fprintf(stderr, "         -d <device>               : ALSA device name. 'default' if not specified.\n");
@@ -97,7 +103,7 @@ error_exit:
 
 
 int main(int argc, char*argv[]) {
-  int error;
+  int error, res;
 
   // function pointer definition for receiver
   void (*receiver_rcv_fn)(receiver_data_t* receiver_data);
@@ -116,20 +122,20 @@ int main(int argc, char*argv[]) {
   enum output_type output_mode = Raw;
 #endif
 
-  char *multicast_group = NULL;
-  char *ivshmem_device  = NULL;
-  char *output          = NULL;
-  char *alsa_device     = "default";
-  char *stream_name     = "Audio";
-  int target_latency_ms = 50;
-  in_addr_t interface   = INADDR_ANY;
-  uint16_t port         = DEFAULT_PORT;
-
+  char *multicast_group      = NULL;
+  char *ivshmem_device       = NULL;
+  char *output               = NULL;
+  const char* interface_name = NULL;
+  char *alsa_device          = "default";
+  char *stream_name          = "Audio";
+  int target_latency_ms      = 50;
+  in_addr_t interface        = INADDR_ANY;
+  uint16_t port              = DEFAULT_PORT;
   int opt;
-  while ((opt = getopt(argc, argv, "i:g:p:m:o:d:n:t:uvh")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:m:x:o:d:n:t:Puvh")) != -1) {
     switch (opt) {
     case 'i':
-      interface = get_interface(optarg);
+      interface_name = strdup(optarg);
       break;
     case 'p':
       port = atoi(optarg);
@@ -140,6 +146,9 @@ int main(int argc, char*argv[]) {
       break;
     case 'g':
       multicast_group = strdup(optarg);
+      break;
+    case 'P':
+      receiver_mode = Pcap;
       break;
     case 'm':
       receiver_mode = SharedMem;
@@ -168,6 +177,11 @@ int main(int argc, char*argv[]) {
       show_usage(argv[0]);
     }
   }
+
+  if (receiver_mode != Pcap) {
+      interface = get_interface(interface_name);
+  }
+
   if (optind < argc) {
     fprintf(stderr, "Expected argument after options\n");
     show_usage(argv[0]);
@@ -220,6 +234,14 @@ int main(int argc, char*argv[]) {
       init_shmem(ivshmem_device);
       receiver_rcv_fn = rcv_shmem;
       break;
+    case Pcap:
+#if PCAP_ENABLE
+      res = init_pcap(interface_name, port, multicast_group);
+      return res == 0 ? run_pcap(output_send_fn) : res;
+#else
+      fprintf(stderr, "%s compiled without libpcap support. Aborting", argv[0]);
+      return 1;
+#endif
     case Unicast:
     case Multicast:
     default:
