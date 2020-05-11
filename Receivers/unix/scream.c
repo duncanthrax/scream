@@ -65,7 +65,7 @@ static void show_usage(const char *arg0)
 
 static in_addr_t get_interface(const char *name)
 {
-  int sockfd = socket(AF_INET,SOCK_DGRAM,0);
+  int sockfd;
   struct ifreq ifr;
   in_addr_t addr = inet_addr(name);
   struct if_nameindex *ni;
@@ -74,6 +74,8 @@ static in_addr_t get_interface(const char *name)
   if (addr != INADDR_NONE) {
     return addr;
   }
+
+  memset(&ifr, 0, sizeof(ifr));
 
   if (strlen(name) >= sizeof(ifr.ifr_name)) {
     fprintf(stderr, "Too long interface name: %s\n\n", name);
@@ -178,7 +180,7 @@ int main(int argc, char*argv[]) {
     }
   }
 
-  if (receiver_mode != Pcap) {
+  if (interface_name && receiver_mode != Pcap) {
       interface = get_interface(interface_name);
   }
 
