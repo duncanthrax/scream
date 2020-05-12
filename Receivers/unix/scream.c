@@ -124,7 +124,7 @@ int main(int argc, char*argv[]) {
   char *alsa_device     = "default";
   char *stream_name     = "Audio";
   int target_latency_ms = 50;
-  int target_max_latency_ms = 200;
+  int max_latency_ms = 200;
   in_addr_t interface   = INADDR_ANY;
   uint16_t port         = DEFAULT_PORT;
 
@@ -165,8 +165,8 @@ int main(int argc, char*argv[]) {
       if (target_latency_ms < 0) show_usage(argv[0]);
       break;
     case 'l':
-      target_max_latency_ms = atoi(optarg);
-      if (target_max_latency_ms < 0) show_usage(argv[0]);
+      max_latency_ms = atoi(optarg);
+      if (max_latency_ms < 0) show_usage(argv[0]);
       break;
     case 'v':
       verbosity += 1;
@@ -189,7 +189,7 @@ int main(int argc, char*argv[]) {
     case Pulseaudio:
 #if PULSEAUDIO_ENABLE
       if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
-      if (pulse_output_init(target_latency_ms, target_max_latency_ms, stream_name) != 0) {
+      if (pulse_output_init(target_latency_ms, max_latency_ms, stream_name) != 0) {
         return 1;
       }
       output_send_fn = pulse_output_send;
