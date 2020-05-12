@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 enum receiver_type {
-  Unicast, Multicast, SharedMem
+  Unicast, Multicast, SharedMem, Pcap
 };
 
 enum output_type {
