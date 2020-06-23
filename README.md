@@ -38,15 +38,22 @@ is subject to these rules, the driver will not install.
 However, cross-signed kernel drivers are still accepted by Windows 10 version 1607 (and greater) if any of the following excpetions apply:
 
 - The driver is a boot-up driver
-- Secure Boot is disabled in BIOS
-- The driver is signed with a certificate issued before 29 July 2015
-- The Windows 10 version 1607 System was upgraded and not directly installed
-- A registry key is set that allows cross-signed drivers to load even on systems with Secure Boot enabled
+- Windows 10 was upgraded from a version preceding 1607
+- Secure Boot is disabled in BIOS or not not available at all
+- The driver was signed with a certificate issued before 29 July 2015
+- A special registry value has been set, thereby allowing cross-signed drivers to load on systems with Secure Boot enabled
 
 **Workaround #1: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
 For more information, see [this issue](https://github.com/duncanthrax/scream/issues/8).
 
-**Workaround #2: Add a special registry value.** Please review the following resources for more information.
+**Workaround #2: Add this special registry value:** 
+
+```
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CI\Policy]
+"UpgradedSystem"=dword:00000001
+```
+
+Please review the following resources for more information.
 
 - ["Back Doors for Cross-Signed Drivers", a blogpost by Geoff Chappell](https://www.geoffchappell.com/notes/security/whqlsettings/index.htm)
 - ["Windows 10 Anniversary Update - Digital Signature Question", a forum thread on MyDigitalLife](https://forums.mydigitallife.net/threads/windows-10-anniversary-update-digital-signature-question.69970/#post-1272392)
