@@ -26,14 +26,31 @@ The "installer" is a batch file that needs to be run with
 administrator rights.
 
 The build is supposed to run on all x64 versions of Windows 7
-through Windows 10. 
+through Windows 10.
+
+#### Installation on Windows 10 version 1607 and newer
 
 Microsoft has [recently tightened the rules for signing kernel
 drivers](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/kernel-mode-code-signing-policy--windows-vista-and-later-). These new rules apply to newer Windows 10 installations
-that were not upgraded from an earlier version. If your installation
+which were not upgraded from an earlier version. If your installation
 is subject to these rules, the driver will not install.
-**Workaround: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
+
+However, cross-signed kernel drivers are still accepted by Windows 10 version 1607 (and greater) if any of the following excpetions apply:
+
+- The driver is a boot-up driver
+- Secure Boot is disabled in BIOS
+- The driver is signed with a certificate issued before 29 July 2015
+- The Windows 10 version 1607 System was upgraded and not directly installed
+- A registry key is set that allows cross-signed drivers to load even on systems with Secure Boot enabled
+
+**Workaround #1: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
 For more information, see [this issue](https://github.com/duncanthrax/scream/issues/8).
+
+**Workaround #2: Add a special registry value.** Please review the following resources for more information.
+
+- ["Back Doors for Cross-Signed Drivers", a blogpost by Geoff Chappell](https://www.geoffchappell.com/notes/security/whqlsettings/index.htm)
+- ["Windows 10 Anniversary Update - Digital Signature Question", a forum thread on MyDigitalLife](https://forums.mydigitallife.net/threads/windows-10-anniversary-update-digital-signature-question.69970/#post-1272392)
+ 
 
 Receivers
 ---------------------------------------------------------------
