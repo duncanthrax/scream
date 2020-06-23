@@ -35,7 +35,7 @@ drivers](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/kerne
 which were not upgraded from an earlier version. If your installation
 is subject to these rules, the driver will not install.
 
-However, cross-signed kernel drivers are still accepted by Windows 10 version 1607 (and greater) if any of the following excpetions apply:
+However, cross-signed kernel drivers are still accepted by Windows 10 version 1607 (and greater) if any of the following exceptions apply:
 
 - The driver is a boot-up driver
 - Windows 10 was upgraded from a version preceding 1607
