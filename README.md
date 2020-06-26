@@ -39,7 +39,7 @@ However, cross-signed kernel drivers are still accepted by Windows 10 version 16
 
 - The driver is a boot-up driver
 - Windows 10 was upgraded from a version preceding 1607
-- Secure Boot is disabled in BIOS or not not available at all
+- Secure Boot is disabled in BIOS or not available at all
 - The driver was signed with a certificate issued before 29 July 2015
 - A special registry value has been set, thereby allowing cross-signed drivers to load on systems with Secure Boot enabled
 
