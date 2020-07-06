@@ -3,7 +3,7 @@ Signature="$CHICAGO$"
 Class=MEDIA
 Provider=%SCR%
 ClassGUID={4d36e96c-e325-11ce-bfc1-08002be10318}
-DriverVer = 04/27/2020,17.31.13.480
+DriverVer = 07/06/2020,22.56.8.202
 CatalogFile=scream.cat
 
 [SourceDisksNames]
