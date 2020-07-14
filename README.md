@@ -75,13 +75,19 @@ support positional mapping of multichannel (more than stereo)
 setups - meaning a mismatch in speaker setup can lead to channels
 being played in the wrong position.
 
-All receivers can be run as unprivileged users. Receiver
-systems that have an input firewall need to open UDP port 4010,
-or whatever custom port you use.
-
-A 3rd-party receiver that supports Scream streams is
+- A 3rd-party receiver that supports Scream streams is
 https://github.com/mincequi/cornrow. It's primarily meant for
 embedded devices.
+
+- @tomek-o wrote receivers for low-power embedded systems, great
+  for building ethernet-attached active speakers. 
+  - [STM32F429 (ARM) Scream Receiver](http://tomeko.net/projects/scream_eth/)
+  - [ESP32 Scream (and RTP) Receiver](http://tomeko.net/projects/esp32_rtp_pager/)
+
+Receivers can usually be run as unprivileged users. Receiver
+systems that have an input **firewall need to open UDP port 4010**,
+or whatever custom port you use.
+
 
 Functional description
 ---------------------------------------------------------------
