@@ -53,6 +53,7 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "\n");
   fprintf(stderr, "         -o pulse|alsa|raw         : Send audio to PulseAudio, ALSA, or stdout.\n");
   fprintf(stderr, "         -d <device>               : ALSA device name. 'default' if not specified.\n");
+  fprintf(stderr, "         -s <sink name>            : Pulseaudio sink name.\n");
   fprintf(stderr, "         -n <stream name>          : Pulseaudio stream name/description.\n");
   fprintf(stderr, "         -t <latency>              : Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "                                     Only relevant for PulseAudio and ALSA output.\n");
@@ -129,12 +130,13 @@ int main(int argc, char*argv[]) {
   char *output               = NULL;
   const char* interface_name = NULL;
   char *alsa_device          = "default";
+  char *sink                 = NULL;
   char *stream_name          = "Audio";
   int target_latency_ms      = 50;
   in_addr_t interface        = INADDR_ANY;
   uint16_t port              = DEFAULT_PORT;
   int opt;
-  while ((opt = getopt(argc, argv, "i:g:p:m:x:o:d:n:t:Puvh")) != -1) {
+  while ((opt = getopt(argc, argv, "i:g:p:m:x:o:d:s:n:t:Puvh")) != -1) {
     switch (opt) {
     case 'i':
       interface_name = strdup(optarg);
@@ -164,6 +166,9 @@ int main(int argc, char*argv[]) {
       break;
     case 'd':
       alsa_device = strdup(optarg);
+      break;
+    case 's':
+      sink = strdup(optarg);
       break;
     case 'n':
       stream_name = strdup(optarg);
@@ -198,7 +203,7 @@ int main(int argc, char*argv[]) {
     case Pulseaudio:
 #if PULSEAUDIO_ENABLE
       if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
-      if (pulse_output_init(target_latency_ms, stream_name) != 0) {
+      if (pulse_output_init(target_latency_ms, sink, stream_name) != 0) {
         return 1;
       }
       output_send_fn = pulse_output_send;
