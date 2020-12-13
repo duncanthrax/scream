@@ -15,7 +15,7 @@
 
 
 typedef jack_default_audio_sample_t ringbuffer_element_t;
-#define RINGBUFFER_SIZE 4096
+#define RINGBUFFER_SIZE 8192
 struct ringbuffer_t
 {
   ringbuffer_element_t elements[RINGBUFFER_SIZE];
@@ -96,30 +96,11 @@ jo_data;
 
 static int init_resampler();
 static int init_channels();
-static void process_source_data();
+static int connect_ports();
+static int process_source_data();
 
 // JACK realtime process callback
 int jack_process(jack_nframes_t nframes, void *arg);
-
-
-
-// 
-// JACK calls this shutdown_callback if the server ever shuts down or
-// decides to disconnect the client.
-// 
-
-// void jack_shutdown(void *arg)
-// {
-//   fprintf(stderr, "client was disconnected from JACK server\n");
-//   exit(1);
-// }
-
-
-// Called when scream client terminates
-//void scream_shutdown()
-//{
-//  jack_client_close(jo_data.client);
-//}
 
 
 
@@ -150,9 +131,6 @@ int jack_output_init(char *stream_name)
     }
     return 1;
   }
-
-  // REVIEW_NEEDED
-  //atexit(scream_shutdown);
     
   if (status & JackServerStarted)
   {
@@ -166,9 +144,6 @@ int jack_output_init(char *stream_name)
   }
 
   jack_set_process_callback(jo_data.client, jack_process, 0);
-
-  //jack_on_shutdown(jo_data.client, jack_shutdown, 0);
-
 
   return 0;
 }
@@ -196,7 +171,7 @@ int jack_output_send(receiver_data_t *data)
     printf("JACK sample rate %" PRIu32 "\n", jack_get_sample_rate(jo_data.client));
 
 
-    if (init_resampler() != 0)
+    if (init_resampler())
     {
       return 1;
     }
@@ -209,7 +184,10 @@ int jack_output_send(receiver_data_t *data)
       return 1;
     }
 
-    init_channels();
+    if (init_channels())
+    {
+      return 1;
+    }
     
     // activating JJACK client - jack_process() callback will start running now
     if (jack_activate(jo_data.client))
@@ -218,32 +196,17 @@ int jack_output_send(receiver_data_t *data)
       return 1;
     }
 
-    // in a simple stereo configuration connnect to output right away
-    if (jo_data.receiver_format.channels == 2)
+    if (connect_ports())
     {
-      const char **ports = jack_get_ports(jo_data.client, NULL, NULL, JackPortIsPhysical|JackPortIsInput);
-      if (ports == NULL)
-      {
-        fprintf(stderr, "no physical playback ports\n");
-        return 1;
-      }
-
-      if (jack_connect(jo_data.client, jack_port_name(jo_data.output_ports[0]), ports[0]))
-      {
-        fprintf(stderr, "cannot connect output port 0\n");
-      }
-
-      if (jack_connect(jo_data.client, jack_port_name(jo_data.output_ports[1]), ports[1]))
-      {
-        fprintf(stderr, "cannot connect output port 1\n");
-      }
-
-      jack_free(ports);
+      return 1;
     }
   }
 
 
-  process_source_data(data);
+  if (process_source_data(data))
+  {
+    return 1;
+  }
   
   return 0;
 }
@@ -330,13 +293,52 @@ static int init_channels()
 }
 
 
-static void process_source_data(receiver_data_t *data)
+static int connect_ports()
+{
+  int num_output_ports = 0;
+  
+  const char **ports = jack_get_ports(jo_data.client, NULL, NULL, JackPortIsPhysical|JackPortIsInput);
+  if (ports == NULL)
+  {
+    fprintf(stderr, "no physical playback ports\n");
+    return 1;
+  }
+
+  // connect the receiver if there is enough output ports
+  for ( ; ports[num_output_ports] && (!strstr(ports[num_output_ports],"midi")); ++num_output_ports)
+  {
+    ;
+  }
+
+
+  if (num_output_ports >= jo_data.receiver_format.channels)
+  {
+    for (int port = 0; port < jo_data.receiver_format.channels && ports[port] ; ++port)
+    {
+      if (jack_connect(jo_data.client, jack_port_name(jo_data.output_ports[port]), ports[port]))
+      {
+        fprintf(stderr, "cannot connect to output port %s\n", ports[port]);
+      }
+      else
+      {
+        printf("channel %u connected to output port %s\n", port, ports[port]);
+      }
+      
+    }
+  }
+
+  jack_free(ports);
+}
+
+
+static int process_source_data(receiver_data_t *data)
 {
   // per channel!
   size_t src_nsamples;
   size_t dst_nsamples;
   size_t idone;
   size_t odone;
+
   size_t resample_ideal_buf_size;
   soxr_error_t soxr_error;
 
@@ -355,16 +357,15 @@ static void process_source_data(receiver_data_t *data)
   if (soxr_error != NULL)
   {
     fprintf(stderr,"soxr error : %s\n", soxr_strerror(soxr_error));
+    return 1;
   }
-
-  //printf("input_samples_per_channel=%u  idone=%u  ouput_samples_per_channel=%u  odone=%u\n",
-  //      input_samples_per_channel, idone, ouput_samples_per_channel, odone
-  //    );
 
   for (int i = 0; i < odone*jo_data.receiver_format.channels; ++i)
   {
     ringbuffer_push(&jo_data.rb, jo_data.resample_buffer[i]);
   }
+
+  return 0;
 }
 
 
@@ -374,8 +375,14 @@ static void process_source_data(receiver_data_t *data)
 int jack_process(jack_nframes_t nframes, void *arg)
 {
   uint8_t channels = jo_data.receiver_format.channels;
-  uint32_t read_frames = ringbuffer_size(&jo_data.rb);
   uint32_t total_nframes = nframes * channels;
+  uint32_t read_frames = ringbuffer_size(&jo_data.rb);
+
+  // wait until rb fills up a bit to prevent early underruns
+  if (read_frames < (total_nframes + 200))
+  {
+    return 0;
+  }
 
   if (total_nframes <= read_frames)
   {
@@ -384,7 +391,7 @@ int jack_process(jack_nframes_t nframes, void *arg)
   else
   {
     // JACK wants more than we can fullfill
-    fprintf(stderr, "underflow!! read_frames=%u  nframes=%u\n", read_frames, total_nframes);
+    fprintf(stderr, "jack_process: underflow!! read_frames=%u  nframes=%u\n", read_frames, total_nframes);
   }  
   
 
@@ -393,7 +400,6 @@ int jack_process(jack_nframes_t nframes, void *arg)
     for (int port = 0; port < channels; ++port)
     {
       jo_data.buffers[port] = jack_port_get_buffer(jo_data.output_ports[port], nframes);
-      //memcpy (out, in, sizeof (jack_default_audio_sample_t) * nframes);
     }
 
     // transfer samples from ringbuffer to JACK port buffers
