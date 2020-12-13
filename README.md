@@ -61,9 +61,10 @@ Please review the following resources for more information.
 
 Receivers
 ---------------------------------------------------------------
-- Unix with Pulseaudio or ALSA: Not included in the installer package.
+- Unix with Pulseaudio, JACK or ALSA: Not included in the installer package.
 Please see [the README in the Receivers/unix folder](https://github.com/duncanthrax/scream/tree/master/Receivers/unix).
 Various contributors have written code for this receiver:
+    * @roovio: JACK support.
     * @ivan: Original ALSA code.
     * @martinellimarco: IVSHMEM support.
     * @accumulator: Refactoring into single binary and cmake support.
