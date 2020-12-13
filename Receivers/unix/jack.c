@@ -5,6 +5,7 @@
 //
 
 #include <jack/jack.h>
+#include <soxr.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -80,17 +81,22 @@ ringbuffer_element_t ringbuffer_pop(struct ringbuffer_t *rb)
 static struct jack_output_data
 {
   jack_client_t       *client;
-  jack_port_t         **output_ports; // number of ports actually used == rf->channels
+  jack_port_t         **output_ports;   ///< number of ports actually used == rf->channels
   jack_default_audio_sample_t **buffers;
   receiver_format_t   receiver_format;
-  uint32_t            sample_rate;
-  uint8_t             sample_size;
+  uint32_t            sample_rate;      ///< source sample rate
+  soxr_t              soxr;
+  jack_default_audio_sample_t *resample_buffer;
+  size_t              resample_buffer_size;
   struct ringbuffer_t rb;
 }
 jo_data;
 
 
 
+static int init_resampler();
+static int init_channels();
+static void process_source_data();
 
 // JACK realtime process callback
 int jack_process(jack_nframes_t nframes, void *arg);
@@ -127,6 +133,9 @@ int jack_output_init(char *stream_name)
   jo_data.receiver_format.channels = 2;
   jo_data.receiver_format.channel_map = 0x0003;
 
+  jo_data.soxr = NULL;
+  jo_data.resample_buffer = NULL;
+  jo_data.resample_buffer_size = 0;
 
   ringbuffer_init(&jo_data.rb);
 
@@ -166,28 +175,6 @@ int jack_output_init(char *stream_name)
 
 
 
-static const char *channel_index_to_name(uint8_t channel)
-{
-  const char *channel_name;
-  switch (channel) {
-    case  0: channel_name = "Front Left"; break;
-    case  1: channel_name = "Front Right"; break;
-    case  2: channel_name = "Front Center"; break;
-    case  3: channel_name = "LFE / Subwoofer"; break;
-    case  4: channel_name = "Rear Left"; break;
-    case  5: channel_name = "Rear Right"; break;
-    case  6: channel_name = "Front-Left Center"; break;
-    case  7: channel_name = "Front-Right Center"; break;
-    case  8: channel_name = "Rear Center"; break;
-    case  9: channel_name = "Side Left"; break;
-    case 10: channel_name = "Side Right"; break;
-    default: channel_name = "unknown_channel";
-  }
-
-  return channel_name;
-}
-
-
 
 int jack_output_send(receiver_data_t *data)
 {
@@ -199,15 +186,22 @@ int jack_output_send(receiver_data_t *data)
     memcpy(&jo_data.receiver_format, rf, sizeof(receiver_format_t));
 
     jo_data.sample_rate = ((rf->sample_rate >= 128) ? 44100 : 48000) * (rf->sample_rate % 128);
-    jo_data.sample_size = rf->sample_size;
 
     printf(
       "Switched sample rate %"PRIu32", sample size %u and %u channels\n",
        jo_data.sample_rate,
-       jo_data.sample_size,
+       jo_data.receiver_format.sample_size,
        rf->channels);
 
     printf("JACK sample rate %" PRIu32 "\n", jack_get_sample_rate(jo_data.client));
+
+
+    if (init_resampler() != 0)
+    {
+      return 1;
+    }
+
+
 
     if (jack_deactivate(jo_data.client))
     {
@@ -215,29 +209,7 @@ int jack_output_send(receiver_data_t *data)
       return 1;
     }
 
-
-    // init channels
-    free(jo_data.output_ports);
-    jo_data.output_ports = malloc(sizeof(jack_port_t*) * rf->channels);
-    free(jo_data.buffers);
-    jo_data.buffers = malloc(sizeof(jack_default_audio_sample_t*) * rf->channels);
-    for (int i = 0 ; i < rf->channels; ++i)
-    {
-      if ( (rf->channel_map  >> i) & 1 )
-      {
-        const char *port_name = channel_index_to_name(i);
-        jo_data.output_ports[i] = jack_port_register(jo_data.client,
-               port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-        printf("registered jack port '%s' for channel %u\n",  port_name, i);
-        
-        if (jo_data.output_ports[i] == NULL)
-        {
-          fprintf(stderr, "no more JACK ports available\n");
-          return 1;
-        }
-      }
-    }
-
+    init_channels();
     
     // activating JJACK client - jack_process() callback will start running now
     if (jack_activate(jo_data.client))
@@ -268,23 +240,135 @@ int jack_output_send(receiver_data_t *data)
 
       jack_free(ports);
     }
-
-    
   }
 
 
-  if (jo_data.sample_size == 16)
-  {
-    int16_t *samples = (int16_t *)data->audio;
-    for (int i = 0; i < data->audio_size / 2 ; ++i)
-    {
-      float fsample = (float)samples[i] / (float)INT16_MAX;
-      ringbuffer_push(&jo_data.rb, fsample);
-    }
-  }
-
+  process_source_data(data);
+  
   return 0;
 }
+
+
+
+
+static int init_resampler()
+{
+  soxr_io_spec_t io_spec;
+  soxr_datatype_t in_datatype;
+  switch(jo_data.receiver_format.sample_size)
+  {
+    case 16: in_datatype = SOXR_INT16_I; break;
+    case 32: in_datatype = SOXR_INT32_I; break;
+    default:
+      return 1;
+  }
+
+  io_spec = soxr_io_spec(in_datatype, SOXR_FLOAT32_I);
+  if (jo_data.soxr)
+  {
+    soxr_delete(jo_data.soxr);
+  }
+  jo_data.soxr = soxr_create(
+    jo_data.sample_rate,
+    jack_get_sample_rate(jo_data.client),
+    jo_data.receiver_format.channels,
+    NULL, &io_spec, NULL, NULL );
+  if (!jo_data.soxr )
+  {
+    fprintf(stderr, "failed to initialize resampler");
+    return 1;
+  }
+  return 0;
+}
+
+
+static const char *channel_index_to_name(uint8_t channel)
+{
+  const char *channel_name;
+  switch (channel) {
+    case  0: channel_name = "Front Left"; break;
+    case  1: channel_name = "Front Right"; break;
+    case  2: channel_name = "Front Center"; break;
+    case  3: channel_name = "LFE / Subwoofer"; break;
+    case  4: channel_name = "Rear Left"; break;
+    case  5: channel_name = "Rear Right"; break;
+    case  6: channel_name = "Front-Left Center"; break;
+    case  7: channel_name = "Front-Right Center"; break;
+    case  8: channel_name = "Rear Center"; break;
+    case  9: channel_name = "Side Left"; break;
+    case 10: channel_name = "Side Right"; break;
+    default: channel_name = "unknown_channel";
+  }
+
+  return channel_name;
+}
+
+
+static int init_channels()
+{
+  free(jo_data.output_ports);
+  jo_data.output_ports = malloc(sizeof(jack_port_t*) * jo_data.receiver_format.channels);
+  free(jo_data.buffers);
+  jo_data.buffers = malloc(sizeof(jack_default_audio_sample_t*) * jo_data.receiver_format.channels);
+  for (int i = 0 ; i < jo_data.receiver_format.channels; ++i)
+  {
+    if ( (jo_data.receiver_format.channel_map  >> i) & 1 )
+    {
+      const char *port_name = channel_index_to_name(i);
+      jo_data.output_ports[i] = jack_port_register(jo_data.client,
+              port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+      printf("registered jack port '%s' for channel %u\n",  port_name, i);
+      
+      if (jo_data.output_ports[i] == NULL)
+      {
+        fprintf(stderr, "no more JACK ports available\n");
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+
+static void process_source_data(receiver_data_t *data)
+{
+  // per channel!
+  size_t src_nsamples;
+  size_t dst_nsamples;
+  size_t idone;
+  size_t odone;
+  size_t resample_ideal_buf_size;
+  soxr_error_t soxr_error;
+
+  // (re)allocate a resampling buffer if needed
+  src_nsamples = data->audio_size / (jo_data.receiver_format.sample_size >> 3) / jo_data.receiver_format.channels;
+  dst_nsamples = src_nsamples * jack_get_sample_rate(jo_data.client) / jo_data.sample_rate + 1;
+  resample_ideal_buf_size = dst_nsamples*jo_data.receiver_format.channels;
+  if (jo_data.resample_buffer_size < resample_ideal_buf_size)
+  {
+    free(jo_data.resample_buffer);
+    jo_data.resample_buffer = malloc(resample_ideal_buf_size* sizeof(jack_default_audio_sample_t));
+    jo_data.resample_buffer_size = resample_ideal_buf_size;
+  }
+
+  soxr_error = soxr_process(jo_data.soxr, data->audio, src_nsamples, &idone, jo_data.resample_buffer, dst_nsamples, &odone);
+  if (soxr_error != NULL)
+  {
+    fprintf(stderr,"soxr error : %s\n", soxr_strerror(soxr_error));
+  }
+
+  //printf("input_samples_per_channel=%u  idone=%u  ouput_samples_per_channel=%u  odone=%u\n",
+  //      input_samples_per_channel, idone, ouput_samples_per_channel, odone
+  //    );
+
+  for (int i = 0; i < odone*jo_data.receiver_format.channels; ++i)
+  {
+    ringbuffer_push(&jo_data.rb, jo_data.resample_buffer[i]);
+  }
+}
+
+
+
 
 
 int jack_process(jack_nframes_t nframes, void *arg)
