@@ -33,6 +33,22 @@ if (ALSA_ENABLE)
   endif ()
 endif ()
 
+# find JACK
+option(JACK_ENABLE "Enable JACK" ON)
+if (JACK_ENABLE)
+  find_package(PkgConfig)
+  pkg_check_modules(PC_JACK jack)
+  pkg_check_modules(PC_LIBSOXR soxr)
+  if(PC_JACK_FOUND AND PC_LIBSOXR_FOUND)
+    include_directories(${PC_JACK_INCLUDEDIR} ${PC_LIBSOXR_INCLUDEDIR})
+    target_link_libraries(${PROJECT_NAME} ${PC_JACK_LIBRARIES} ${PC_LIBSOXR_LIBRARIES})
+    target_sources(${PROJECT_NAME} PRIVATE jack.c)
+  else ()
+    set(JACK_ENABLE OFF)
+  endif ()
+endif ()
+
+
 # find libpcap
 option(PCAP_ENABLE "Enable PCAP" ON)
 if (PCAP_ENABLE)

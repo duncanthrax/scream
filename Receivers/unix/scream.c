@@ -32,6 +32,12 @@
 #include "pcap.h"
 #endif
 
+
+#if JACK_ENABLE
+#include "jack.h"
+#endif
+
+
 static void show_usage(const char *arg0)
 {
   fprintf(stderr, "\n");
@@ -51,10 +57,11 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "         -m <ivshmem device path>  : Use shared memory device.\n");
   fprintf(stderr, "         -P                        : Use libpcap to sniff the packets.\n");
   fprintf(stderr, "\n");
-  fprintf(stderr, "         -o pulse|alsa|raw         : Send audio to PulseAudio, ALSA, or stdout.\n");
+  fprintf(stderr, "         -o pulse|alsa|jack|raw    : Send audio to PulseAudio, ALSA, Jack or stdout.\n");
   fprintf(stderr, "         -d <device>               : ALSA device name. 'default' if not specified.\n");
   fprintf(stderr, "         -s <sink name>            : Pulseaudio sink name.\n");
   fprintf(stderr, "         -n <stream name>          : Pulseaudio stream name/description.\n");
+  fprintf(stderr, "         -n <client name>          : JACK client name.\n");
   fprintf(stderr, "         -t <latency>              : Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "                                     Only relevant for PulseAudio and ALSA output.\n");
   fprintf(stderr, "\n");
@@ -130,8 +137,9 @@ int main(int argc, char*argv[]) {
   char *output               = NULL;
   const char* interface_name = NULL;
   char *alsa_device          = "default";
-  char *sink                 = NULL;
-  char *stream_name          = "Audio";
+  char *pa_sink              = NULL;
+  char *pa_stream_name       = "Audio";
+  char *jack_client_name     = "scream";
   int target_latency_ms      = 50;
   in_addr_t interface        = INADDR_ANY;
   uint16_t port              = DEFAULT_PORT;
@@ -162,16 +170,18 @@ int main(int argc, char*argv[]) {
       output = strdup(optarg);
       if (strcmp(output,"pulse") == 0) output_mode = Pulseaudio;
       else if (strcmp(output,"alsa") == 0) output_mode = Alsa;
+      else if (strcmp(output,"jack") == 0) output_mode = Jack;
       else if (strcmp(output,"raw") == 0) output_mode = Raw;
       break;
     case 'd':
       alsa_device = strdup(optarg);
       break;
     case 's':
-      sink = strdup(optarg);
+      pa_sink = strdup(optarg);
       break;
     case 'n':
-      stream_name = strdup(optarg);
+      pa_stream_name = strdup(optarg);
+      jack_client_name = pa_stream_name;
       break;
     case 't':
       target_latency_ms = atoi(optarg);
@@ -203,7 +213,7 @@ int main(int argc, char*argv[]) {
     case Pulseaudio:
 #if PULSEAUDIO_ENABLE
       if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
-      if (pulse_output_init(target_latency_ms, sink, stream_name) != 0) {
+      if (pulse_output_init(target_latency_ms, pa_sink, pa_stream_name) != 0) {
         return 1;
       }
       output_send_fn = pulse_output_send;
@@ -221,6 +231,18 @@ int main(int argc, char*argv[]) {
       output_send_fn = alsa_output_send;
 #else
       fprintf(stderr, "%s compiled without ALSA support. Aborting\n", argv[0]);
+      return 1;
+#endif
+      break;
+    case Jack:
+#if JACK_ENABLE
+      if (verbosity) fprintf(stderr, "Using JACK output\n");
+      if (jack_output_init(jack_client_name) != 0) {
+        return 1;
+      }
+      output_send_fn = jack_output_send;
+#else
+      fprintf(stderr, "%s compiled without JACK support. Aborting\n", argv[0]);
       return 1;
 #endif
       break;
