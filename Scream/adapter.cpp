@@ -34,6 +34,7 @@ PCHAR g_UnicastIPv4;
 DWORD g_UnicastPort;
 //0 = false, otherwhise it's value is the size in MiB of the IVSHMEM we want to use
 UINT8 g_UseIVSHMEM;
+UINT8 g_UseRtpAc3;
 
 //-----------------------------------------------------------------------------
 // Referenced forward.
@@ -78,6 +79,7 @@ Returns:
     UNICODE_STRING      unicastIPv4;
     DWORD               unicastPort = 0;
     DWORD               useIVSHMEM = 0;
+    DWORD               useRtpAc3 = 0;
 
     RtlZeroMemory(&unicastIPv4, sizeof(UNICODE_STRING));
 
@@ -85,6 +87,7 @@ Returns:
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastIPv4", &unicastIPv4, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastPort", &unicastPort, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UseIVSHMEM", &useIVSHMEM, REG_NONE,  NULL, 0 },
+        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UseRtpAc3", &useRtpAc3, REG_NONE,  NULL, 0 },
         { NULL,   0,                         NULL,           NULL,         0,         NULL, 0 }
     };
 
@@ -164,6 +167,7 @@ Returns:
     }
 
     g_UseIVSHMEM = (UINT8)useIVSHMEM;
+    g_UseRtpAc3 = (UINT8)useRtpAc3;
 
     ExFreePool(parametersPath.Buffer);
 

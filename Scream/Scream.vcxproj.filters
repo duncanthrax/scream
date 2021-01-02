@@ -51,6 +51,9 @@
     <ClCompile Include="ivshmemsavedata.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ac3encoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -90,6 +93,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ivshmemsavedata.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ac3encoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpheader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
