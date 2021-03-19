@@ -212,14 +212,102 @@ VOID SendDataWorkerCallback(PDEVICE_OBJECT pDeviceObject, IN  PVOID  Context) {
     KeSetEvent(&(pParam->EventDone), 0, FALSE);
 } // SendDataWorkerCallback
 
+// Prototype for the control socket IoCompletion routine
+NTSTATUS
+ControlSocketComplete(
+	PDEVICE_OBJECT DeviceObject,
+	PIRP Irp,
+	PVOID Context
+);
+
+// Function to set socket options
+NTSTATUS SetSockOpt (PWSK_SOCKET Socket, ULONG level, ULONG option_name, ULONG option_value)
+{
+	PWSK_PROVIDER_BASIC_DISPATCH Dispatch;
+	PIRP		Irp;
+	ULONG		SocketOptionState;
+	NTSTATUS	Status;
+
+	Dispatch = (PWSK_PROVIDER_BASIC_DISPATCH)(Socket->Dispatch);
+
+	// Allocate an IRP
+	Irp = IoAllocateIrp(1, FALSE);
+
+	// Check result
+	if (!Irp)
+	{
+		// Return error
+		return STATUS_INSUFFICIENT_RESOURCES;
+	}
+
+	// Set the completion routine for the IRP
+	IoSetCompletionRoutine(
+		Irp,
+		ControlSocketComplete,
+		Socket,  // Use the socket object for the context
+		TRUE,
+		TRUE,
+		TRUE
+	);
+
+	// Initiate the control operation on the socket
+	Status = Dispatch->WskControlSocket(Socket,	WskSetOption, option_name, level, sizeof(ULONG), &option_value, 0, NULL, NULL, Irp);
+
+	// SDK says not to set IP_TOS - use QOS API. No API for WDK?
+	if (g_DSCP > 0) {
+		SocketOptionState = g_DSCP << 2;
+//		status = ((m_socket->Dispatch))->WskControlSocket(m_socket, WskSetOption, IP_TOS, IPPROTO_IP, sizeof(ULONG), &SocketOptionState, 0, NULL, NULL, m_irp);
+	}
+	
+	return Status;
+}
+
+// Control socket IoCompletion routine
+NTSTATUS
+ControlSocketComplete(
+	PDEVICE_OBJECT DeviceObject,
+	PIRP Irp,
+	PVOID Context
+)
+{
+	UNREFERENCED_PARAMETER(DeviceObject);
+
+	PWSK_SOCKET Socket;
+
+	// Check the result of the control operation
+	if (Irp->IoStatus.Status == STATUS_SUCCESS)
+	{
+		// Get the socket object from the context
+		Socket = (PWSK_SOCKET)Context;
+
+		// Perform the next operation on the socket
+	}
+
+	// Error status
+	else
+	{
+		// Handle error
+		//		DPF(D_TERSE, ("WskSetOtion returns: %x", Irp->IoStatus.Status));
+	}
+
+	// Free the IRP
+	IoFreeIrp(Irp);
+
+	// Always return STATUS_MORE_PROCESSING_REQUIRED to
+	// terminate the completion processing of the IRP.
+	return STATUS_MORE_PROCESSING_REQUIRED;
+}
+
+
 #pragma code_seg()
 //=============================================================================
 void CSaveData::CreateSocket(void) {
     NTSTATUS            status;
     WSK_PROVIDER_NPI    pronpi;
     LPCTSTR             terminator;
-    SOCKADDR_IN         locaddr4 = { AF_INET, RtlUshortByteSwap((USHORT)g_UnicastPort), 0, 0 };
+    SOCKADDR_IN         locaddr4 = { AF_INET, RtlUshortByteSwap((USHORT)g_UnicastSrcPort), 0, 0 };
     SOCKADDR_IN         sockaddr = { AF_INET, RtlUshortByteSwap((USHORT)g_UnicastPort), 0, 0 };
+
     
     DPF_ENTER(("[CSaveData::CreateSocket]"));
     
@@ -230,6 +318,7 @@ void CSaveData::CreateSocket(void) {
         return;
     }
 
+	RtlIpv4StringToAddress(g_UnicastSrcIPv4, true, &terminator, &(locaddr4.sin_addr));
     RtlIpv4StringToAddress(g_UnicastIPv4, true, &terminator, &(sockaddr.sin_addr));
     RtlCopyMemory(&m_sServerAddr, &sockaddr, sizeof(SOCKADDR_IN));
     
@@ -275,8 +364,19 @@ void CSaveData::CreateSocket(void) {
     WskReleaseProviderNPI(&m_wskSampleRegistration);
 
     // bind the socket
-    IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
+	IoReuseIrp(m_irp, STATUS_UNSUCCESSFUL);
     IoSetCompletionRoutine(m_irp, WskSampleSyncIrpCompletionRoutine, &m_syncEvent, TRUE, TRUE, TRUE);
+
+	status = SetSockOpt(m_socket, SOL_SOCKET, SO_REUSEADDR, 1);
+
+	if (g_TTL) {
+		// should check for unicasst and set IP_TTL
+		status = SetSockOpt(m_socket, IPPROTO_IP, IP_MULTICAST_TTL, g_TTL);
+	}
+	
+//	if (g_DSCP) status = SetSockOpt(m_socket, IPPROTO_IP, IP_TOS, (g_DSCP << 2) & 0xff);  // no support in kernel - raw socket and IP_HDRINCL?
+	
+
     status = ((PWSK_PROVIDER_DATAGRAM_DISPATCH)(m_socket->Dispatch))->WskBind(m_socket, (PSOCKADDR)(&locaddr4), 0, m_irp);
     KeWaitForSingleObject(&m_syncEvent, Executive, KernelMode, FALSE, NULL);
     
