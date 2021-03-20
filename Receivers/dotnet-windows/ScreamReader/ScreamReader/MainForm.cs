@@ -35,7 +35,7 @@ namespace ScreamReader
         private void FileOnExitClick(object sender, EventArgs e)
         {
             this.screamReaderTray.udpPlayer.Dispose();
-            Application.Exit();
+            Environment.Exit(0);
         }
 
         private void AboutToolStripMenuItem_Click(object sender, EventArgs e)
