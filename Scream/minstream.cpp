@@ -706,7 +706,7 @@ Return Value:
         }
 
         // Finished checking; if we are in SILENCE we should not write out, but GAP or NOT_SILENT should be written out
-        if (m_silenceState <= 999) {
+        if (m_silenceState <= g_silenceSamples) {
             m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), ByteCount - start_copy_byte);
         }
     }
