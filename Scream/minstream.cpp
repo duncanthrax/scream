@@ -15,6 +15,7 @@ Abstract:
 #include "minwave.h"
 #include "minstream.h"
 #include "wavtable.h"
+#include <stdlib.h>
 
 // #pragma code_seg("PAGE")
 
@@ -43,6 +44,8 @@ CMiniportWaveCyclicStream::CMiniportWaveCyclicStream(PUNKNOWN other) : CUnknown(
     m_ulDmaBufferSize = 0;
     m_ulDmaMovementRate = 0;
     m_ullDmaTimeStamp = 0;
+
+    m_silenceState = 0;
 }
 
 //=============================================================================
@@ -126,6 +129,7 @@ Return Value:
         m_fCapture                        = Capture_;
         m_usBlockAlign                    = pWfx->nBlockAlign;
         m_fFormat16Bit                    = (pWfx->wBitsPerSample == 16);
+        m_bitsPerSample                   = pWfx->wBitsPerSample;
         m_ksState                         = KSSTATE_STOP;
         m_ulDmaPosition                   = 0;
         m_ullElapsedTimeCarryForward      = 0;
@@ -539,9 +543,10 @@ Return Value:
 
     m_pvDmaBuffer = (PVOID) ExAllocatePoolWithTag(NonPagedPool, BufferSize, MSVAD_POOLTAG);
     if (!m_pvDmaBuffer) {
-        ntStatus = STATUS_INSUFFICIENT_RESOURCES;
-    } else {
-        m_ulDmaBufferSize = BufferSize;
+ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+    }
+ else {
+ m_ulDmaBufferSize = BufferSize;
     }
 
     return ntStatus;
@@ -637,7 +642,73 @@ Return Value:
         m_IVSHMEMSaveData.WriteData((PBYTE)Source, ByteCount);
     }
     else {
-        m_SaveData.WriteData((PBYTE)Source, ByteCount);
+        ULONG start_copy_byte = 0;
+        ULONG bytes_per_sample = m_bitsPerSample / 8;
+        ULONG sample_count = ByteCount / bytes_per_sample;
+
+        // Check for silence, if the relevant control knobs are set
+        if ((g_silenceThreshold > 0) && (g_silenceSamples > 0))  {
+            for (unsigned int i = 0; i < sample_count; i++) {
+                // Work out if samples worth of bytes is zero
+                BOOL is_silent = FALSE;
+            
+                // At this stage, the data in the Source buffer is PCM audio, either 16 bit signed, or 8 bit unsigned
+                // Tests have shown playing a file of pure silence generates PCM values between -2 and +2 (for 16 bit signed mode)
+            
+                if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < (int) g_silenceThreshold)) {
+                    is_silent = TRUE;
+                }
+
+                // 24-bit is not yet supported, would need some extra code to up-scale the sample to 32-bit for checking
+                /*
+                 if ((bytes_per_sample == 3) && ...) {
+                    is_silent = TRUE;
+                }
+                */
+
+                // For 32-bit, the 16-bit threshold is scaled up to match the 32-bit range
+                if ((bytes_per_sample == 4) && (abs(((INT32*)Source)[i]) < (int) (65536 * g_silenceThreshold))) {
+                    is_silent = TRUE;
+                }
+            
+                if (m_silenceState > g_silenceSamples) {
+                    // SILENT
+                    if (!is_silent) {
+                        // SILENT -> NOT SILENT
+                        m_silenceState = 0;
+                        start_copy_byte = i * bytes_per_sample;
+                    }
+                }
+                else if (m_silenceState > 0) {
+                    // GAP
+                    if (is_silent) {
+                        m_silenceState++;
+                        if (m_silenceState > g_silenceSamples) {
+                            // GAP -> SILENT
+
+                            // Need to write out whatever has occurred so far
+                            m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), (i * bytes_per_sample) - start_copy_byte);
+                            start_copy_byte = 0;
+                        }
+                    }
+                    else {
+                        // GAP -> NOT SILENT
+                        m_silenceState = 0;
+                    }
+                }
+                else {
+                    if (is_silent) {
+                        // NOT_SILENT -> GAP
+                        m_silenceState++;
+                    }
+                }
+            }
+        }
+
+        // Finished checking; if we are in SILENCE we should not write out, but GAP or NOT_SILENT should be written out
+        if (m_silenceState <= 999) {
+            m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), ByteCount - start_copy_byte);
+        }
     }
 } // CopyTo
 

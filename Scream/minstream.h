@@ -51,6 +51,11 @@ protected:
     CSaveData                   m_SaveData;                         // Object to save settings.
     CIVSHMEMSaveData            m_IVSHMEMSaveData;                  // Object to save settings if we are using IVSHMEM.
 
+    ULONGLONG                   m_silenceState = 0;                 // 0     = NOT SILENT
+                                                                    // 1-g_silenceSamples = GAP
+                                                                    // 1000  = SILENT
+    WORD                        m_bitsPerSample;
+   
 public:
     DECLARE_STD_UNKNOWN();
     CMiniportWaveCyclicStream(PUNKNOWN other);
