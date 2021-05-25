@@ -543,10 +543,9 @@ Return Value:
 
     m_pvDmaBuffer = (PVOID) ExAllocatePoolWithTag(NonPagedPool, BufferSize, MSVAD_POOLTAG);
     if (!m_pvDmaBuffer) {
-ntStatus = STATUS_INSUFFICIENT_RESOURCES;
-    }
- else {
- m_ulDmaBufferSize = BufferSize;
+        ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+    } else {
+        m_ulDmaBufferSize = BufferSize;
     }
 
     return ntStatus;
