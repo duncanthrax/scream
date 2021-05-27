@@ -134,5 +134,6 @@ extern DWORD g_UnicastPort;
 extern UINT8 g_UseIVSHMEM;
 extern DWORD g_silenceSamples;
 extern DWORD g_silenceThreshold;
+extern DWORD g_silenceMode;
 
 #endif

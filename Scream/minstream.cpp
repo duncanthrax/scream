@@ -652,25 +652,47 @@ Return Value:
                 // Work out if samples worth of bytes is zero
                 BOOL is_silent = FALSE;
             
-                // At this stage, the data in the Source buffer is PCM audio, either 16 bit signed, or 8 bit unsigned
-                // Tests have shown playing a file of pure silence generates PCM values between -2 and +2 (for 16 bit signed mode)
-            
-                if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < (int) g_silenceThreshold)) {
+              
+                if (g_silenceMode == 0) {
+                    // Off
+                    is_silent = FALSE;
+                } else if (g_silenceMode == 1) {
+                    // Normal
+
+                    // At this stage, the data in the Source buffer is PCM audio, either 16/24/32 bit signed, or 8 bit unsigned
+                    // Tests have shown playing a file of pure silence generates PCM values between -2 and +2 (for 16 bit signed mode)
+
+                    // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nf-portcls-iminiportwavecyclicstream-silence#remarks
+
+                    if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < (int)g_silenceThreshold)) {
+                        is_silent = TRUE;
+                    }
+                    // 24-bit is not yet supported, would need some extra code to up-scale the sample to 32-bit for checking
+                      /*
+                       if ((bytes_per_sample == 3) && ...) {
+                          is_silent = TRUE;
+                      }
+                      */
+
+                      // For 32-bit, the 16-bit threshold is scaled up to match the 32-bit range
+                    if ((bytes_per_sample == 4) && (abs(((INT32*)Source)[i]) < (int)(65536 * g_silenceThreshold))) {
+                        is_silent = TRUE;
+                    }
+                }
+                else if (g_silenceMode == 2) {
+                    // Use unsigned sample checks, in case the info above is wrong
+                    if ((bytes_per_sample == 2) && (((UINT16*)Source)[i] < g_silenceThreshold)) {
+                        is_silent = TRUE;
+                    }
+                    if ((bytes_per_sample == 4) && ((UINT32*)Source)[i] < (65536 * g_silenceThreshold)) {
+                        is_silent = TRUE;
+                    }
+                }
+                else if (g_silenceMode == 3) {
+                    // treat every sample as silence
                     is_silent = TRUE;
                 }
 
-                // 24-bit is not yet supported, would need some extra code to up-scale the sample to 32-bit for checking
-                /*
-                 if ((bytes_per_sample == 3) && ...) {
-                    is_silent = TRUE;
-                }
-                */
-
-                // For 32-bit, the 16-bit threshold is scaled up to match the 32-bit range
-                if ((bytes_per_sample == 4) && (abs(((INT32*)Source)[i]) < (int) (65536 * g_silenceThreshold))) {
-                    is_silent = TRUE;
-                }
-            
                 if (m_silenceState > g_silenceSamples) {
                     // SILENT
                     if (!is_silent) {
