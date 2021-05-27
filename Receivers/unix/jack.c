@@ -12,25 +12,45 @@
 
 #include "jack.h"
 
+// from the Bit Twiddling hacks
+static inline jack_nframes_t round_nframes_to_power_of_two(jack_nframes_t x)
+{
+	x--;
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	x++;
+	return x;
+}
 
+static jack_nframes_t usec_to_nframes(int rate, int sample_size, int channels, int time_usec)
+{
+	// this number can be larger than UINT32_MAX
+	uint64_t x = time_usec*(uint64_t)rate;
+	return round_nframes_to_power_of_two((jack_nframes_t)(x/1000000)*((sample_size/8)*channels));
+}
 
 typedef jack_default_audio_sample_t ringbuffer_element_t;
-#define RINGBUFFER_SIZE 8192
 struct ringbuffer_t
 {
-  ringbuffer_element_t elements[RINGBUFFER_SIZE];
+  ringbuffer_element_t *elements;
+  uint32_t total_size;
   uint32_t read_pos;
   uint32_t write_pos;
 };
 
 
-uint32_t ringbuffer_mask(uint32_t val)
+uint32_t ringbuffer_mask(uint32_t size, uint32_t val)
 {
-  return val & (RINGBUFFER_SIZE - 1u);
+  return val & (size - 1u);
 }
 
-void ringbuffer_init(struct ringbuffer_t *rb)
+void ringbuffer_init(struct ringbuffer_t *rb, uint32_t size)
 {
+  rb->elements = calloc(sizeof(ringbuffer_element_t), size);
+  rb->total_size = size;
   rb->read_pos = 0u;
   rb->write_pos = 0u;
 }
@@ -47,34 +67,23 @@ int ringbuffer_empty(struct ringbuffer_t *rb)
 
 int ringbuffer_full(struct ringbuffer_t *rb)
 {
-  return ringbuffer_size(rb) == RINGBUFFER_SIZE;
+  return ringbuffer_size(rb) == rb->total_size;
 }
 
 void ringbuffer_push(struct ringbuffer_t *rb, ringbuffer_element_t val)
 {
   if (!ringbuffer_full(rb))
   {
-    rb->elements[ringbuffer_mask(rb->write_pos++)] = val;
+    rb->elements[ringbuffer_mask(rb->total_size, rb->write_pos++)] = val;
   }
-  else
-  {
-    fprintf(stderr, "ringbuffer overflow\n");
-  }
-  
 }
 
 ringbuffer_element_t ringbuffer_pop(struct ringbuffer_t *rb)
 {
   if (!ringbuffer_empty(rb))
   {
-    return rb->elements[ringbuffer_mask(rb->read_pos++)];
+    return rb->elements[ringbuffer_mask(rb->total_size, rb->read_pos++)];
   }
-  else
-  {
-    fprintf(stderr, "ringbuffer underflow\n");
-    return (ringbuffer_element_t)0;
-  }
-  
 }
 
 
@@ -89,6 +98,7 @@ static struct jack_output_data
   jack_default_audio_sample_t *resample_buffer;
   size_t              resample_buffer_size;
   struct ringbuffer_t rb;
+  int latency;
 }
 jo_data;
 
@@ -104,7 +114,7 @@ int jack_process(jack_nframes_t nframes, void *arg);
 
 
 
-int jack_output_init(char *stream_name)
+int jack_output_init(int latency, char *stream_name)
 {
   jack_status_t status;
 
@@ -117,9 +127,8 @@ int jack_output_init(char *stream_name)
   jo_data.soxr = NULL;
   jo_data.resample_buffer = NULL;
   jo_data.resample_buffer_size = 0;
-
-  ringbuffer_init(&jo_data.rb);
-
+  jo_data.latency = latency;
+  jo_data.rb.elements = NULL;
 
   jo_data.client = jack_client_open(stream_name, JackNullOption, &status, NULL);
   if (jo_data.client == NULL)
@@ -177,7 +186,6 @@ int jack_output_send(receiver_data_t *data)
     }
 
 
-
     if (jack_deactivate(jo_data.client))
     {
       fprintf(stderr, "cannot deactivate client");
@@ -200,6 +208,14 @@ int jack_output_send(receiver_data_t *data)
     {
       return 1;
     }
+
+    if (jo_data.rb.elements != NULL)
+      free(jo_data.rb.elements);
+
+    jack_nframes_t nframes = usec_to_nframes(jo_data.sample_rate, jo_data.receiver_format.sample_size, jo_data.receiver_format.channels, jo_data.latency*1000);
+
+    printf("initializing ringbuffer with size: %u\n", nframes);
+    ringbuffer_init(&jo_data.rb, nframes);
   }
 
 
