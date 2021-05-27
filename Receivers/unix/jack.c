@@ -328,6 +328,7 @@ static int connect_ports()
   }
 
   jack_free(ports);
+  return 0;
 }
 
 
