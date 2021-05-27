@@ -237,7 +237,7 @@ int main(int argc, char*argv[]) {
     case Jack:
 #if JACK_ENABLE
       if (verbosity) fprintf(stderr, "Using JACK output\n");
-      if (jack_output_init(jack_client_name) != 0) {
+      if (jack_output_init(target_latency_ms, jack_client_name) != 0) {
         return 1;
       }
       output_send_fn = jack_output_send;
