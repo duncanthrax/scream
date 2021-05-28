@@ -260,7 +260,7 @@ int main(int argc, char*argv[]) {
   switch (receiver_mode) {
     case SharedMem:
       if (verbosity) fprintf(stderr, "Starting IVSHMEM receiver\n");
-      init_shmem(ivshmem_device);
+      init_shmem(ivshmem_device, target_latency_ms);
       receiver_rcv_fn = rcv_shmem;
       break;
     case Pcap:
