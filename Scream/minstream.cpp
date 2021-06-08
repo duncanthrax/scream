@@ -17,6 +17,8 @@ Abstract:
 #include "wavtable.h"
 #include <stdlib.h>
 
+#define SILENCE_SAMPLE_LEVEL 5
+
 // #pragma code_seg("PAGE")
 
 //=============================================================================
@@ -645,89 +647,69 @@ Return Value:
         ULONG bytes_per_sample = m_bitsPerSample / 8;
         ULONG sample_count = ByteCount / bytes_per_sample;
 
-        // Check for silence, if the relevant control knobs are set
-        if ((g_silenceThreshold > 0) && (g_silenceSamples > 0))  {
+        // Check for silence, if the relevant registry entry is set
+        if (g_silenceThreshold > 0)  {
             for (unsigned int i = 0; i < sample_count; i++) {
                 // Work out if samples worth of bytes is zero
                 BOOL is_silent = FALSE;
             
-              
-                if (g_silenceMode == 0) {
-                    // Off
-                    is_silent = FALSE;
-                } else if (g_silenceMode == 1) {
-                    // Normal
+                // At this stage, the data in the Source buffer is PCM audio, either 16/24/32 bit signed, or 8 bit unsigned
+                // Tests have shown playing a file of pure silence generates PCM values between -2 and +2 (for 16 bit signed mode)
 
-                    // At this stage, the data in the Source buffer is PCM audio, either 16/24/32 bit signed, or 8 bit unsigned
-                    // Tests have shown playing a file of pure silence generates PCM values between -2 and +2 (for 16 bit signed mode)
+                // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nf-portcls-iminiportwavecyclicstream-silence#remarks
 
-                    // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nf-portcls-iminiportwavecyclicstream-silence#remarks
-
-                    if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < (int)g_silenceThreshold)) {
-                        is_silent = TRUE;
-                    }
-                    // 24-bit is not yet supported, would need some extra code to up-scale the sample to 32-bit for checking
-                      /*
-                       if ((bytes_per_sample == 3) && ...) {
-                          is_silent = TRUE;
-                      }
-                      */
-
-                      // For 32-bit, the 16-bit threshold is scaled up to match the 32-bit range
-                    if ((bytes_per_sample == 4) && (abs(((INT32*)Source)[i]) < (int)(65536 * g_silenceThreshold))) {
-                        is_silent = TRUE;
-                    }
-                }
-                else if (g_silenceMode == 2) {
-                    // Use unsigned sample checks, in case the info above is wrong
-                    if ((bytes_per_sample == 2) && (((UINT16*)Source)[i] < g_silenceThreshold)) {
-                        is_silent = TRUE;
-                    }
-                    if ((bytes_per_sample == 4) && ((UINT32*)Source)[i] < (65536 * g_silenceThreshold)) {
-                        is_silent = TRUE;
-                    }
-                }
-                else if (g_silenceMode == 3) {
-                    // treat every sample as silence
+                // 8-bit
+                if ((bytes_per_sample == 1) && (abs(((UINT8*)Source)[i]) < SILENCE_SAMPLE_LEVEL)) {
                     is_silent = TRUE;
                 }
 
-                if (m_silenceState > g_silenceSamples) {
-                    // SILENT
+                // 16-bit
+                if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < SILENCE_SAMPLE_LEVEL)) {
+                    is_silent = TRUE;
+                }
+                // 24-bit is not yet supported, would need some extra code to up-scale the sample to 32-bit for checking
+
+                // For 32-bit, the 16-bit threshold is scaled up to match the 32-bit range
+                if ((bytes_per_sample == 4) && (abs(((INT32*)Source)[i]) < (65536 * SILENCE_SAMPLE_LEVEL))) {
+                    is_silent = TRUE;
+                }
+
+                if (m_silenceState > g_silenceThreshold) {
+                    // Current state: Silent
                     if (!is_silent) {
-                        // SILENT -> NOT SILENT
+                        // State transition: Silent -> Not Silent
                         m_silenceState = 0;
                         start_copy_byte = i * bytes_per_sample;
                     }
                 }
                 else if (m_silenceState > 0) {
-                    // GAP
+                    // Current state : Gap
                     if (is_silent) {
                         m_silenceState++;
-                        if (m_silenceState > g_silenceSamples) {
-                            // GAP -> SILENT
+                        if (m_silenceState > g_silenceThreshold) {
+                            // State transition: Gap -> Silent
 
                             // Need to write out whatever has occurred so far
                             m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), (i * bytes_per_sample) - start_copy_byte);
-                            start_copy_byte = 0;
                         }
                     }
                     else {
-                        // GAP -> NOT SILENT
+                        // State transition: Gap -> Not Silent
                         m_silenceState = 0;
                     }
                 }
                 else {
+                    // Current state : Not Silent
                     if (is_silent) {
-                        // NOT_SILENT -> GAP
+                        // State transition: Not Silent -> Gap
                         m_silenceState++;
                     }
                 }
             }
         }
 
-        // Finished checking; if we are in SILENCE we should not write out, but GAP or NOT_SILENT should be written out
-        if (m_silenceState <= g_silenceSamples) {
+        // Finished checking; if we are in Silence we should not write out, but Gap or Not Silent should be written out
+        if (m_silenceState <= g_silenceThreshold) {
             m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), ByteCount - start_copy_byte);
         }
     }

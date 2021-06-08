@@ -36,7 +36,6 @@ DWORD g_UnicastPort;
 UINT8 g_UseIVSHMEM;
 DWORD g_silenceSamples;
 DWORD g_silenceThreshold;
-DWORD g_silenceMode;
 
 //-----------------------------------------------------------------------------
 // Referenced forward.
@@ -81,9 +80,7 @@ Returns:
     UNICODE_STRING      unicastIPv4;
     DWORD               unicastPort = 0;
     DWORD               useIVSHMEM = 0;
-    DWORD               silenceSamples = 0;
     DWORD               silenceThreshold = 0;
-    DWORD               silenceMode = 0;
 
     RtlZeroMemory(&unicastIPv4, sizeof(UNICODE_STRING));
 
@@ -91,9 +88,7 @@ Returns:
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastIPv4", &unicastIPv4, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastPort", &unicastPort, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UseIVSHMEM", &useIVSHMEM, REG_NONE,  NULL, 0 },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"SilenceSamples", &silenceSamples, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"SilenceThreshold", &silenceThreshold, REG_NONE,  NULL, 0 },
-        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"SilenceMode", &silenceMode, REG_NONE,  NULL, 0 },
         { NULL,   0,                         NULL,           NULL,         0,         NULL, 0 }
     };
 
@@ -132,10 +127,8 @@ Returns:
         // Don't return error because we will operate with default values.
     }
 
-    g_silenceSamples = silenceSamples;
     g_silenceThreshold = silenceThreshold;
-    g_silenceMode = silenceMode;
-   
+
     if (unicastPort > 0) {
         g_UnicastPort = unicastPort;
     }
