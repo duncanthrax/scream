@@ -657,9 +657,9 @@ Return Value:
 
                 // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nf-portcls-iminiportwavecyclicstream-silence#remarks
 
-                // 8-bit
-                if ((bytes_per_sample == 1) && (abs(((UINT8*)Source)[i]) < SILENCE_SAMPLE_LEVEL)) {
                     is_silent = TRUE;
+                // 8-bit is signed, with the true 'silence' value being 0x80. 8-bit values haven't been tested
+                if ((bytes_per_sample == 1) && (abs(((UINT8*)Source)[i] - 0x80) < SILENCE_SAMPLE_LEVEL)) {
                 }
 
                 // 16-bit
