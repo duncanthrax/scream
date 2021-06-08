@@ -652,15 +652,8 @@ Return Value:
                 // Work out if samples worth of bytes is zero
                 BOOL current_sample_is_silent = FALSE;
             
-                // At this stage, the data in the Source buffer is PCM audio, either 16/24/32 bit signed, or 8 bit unsigned
-                // Tests have shown playing a file of pure silence generates PCM values between -2 and +2 (for 16 bit signed mode)
-
-                // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nf-portcls-iminiportwavecyclicstream-silence#remarks
-
-                // 8-bit is signed, with the true 'silence' value being 0x80. 8-bit values haven't been tested
-                if ((bytes_per_sample == 1) && (abs(((UINT8*)Source)[i] - 0x80) < SILENCE_SAMPLE_LEVEL)) {
-                    current_sample_is_silent = TRUE;
-                }
+                // At this stage, the data in the Source buffer is PCM audio, 16/24/32 bit signed integers
+                // Tests have shown playing a .wav file of pure silence generates PCM values between -2 and +2
 
                 // 16-bit
                 if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < SILENCE_SAMPLE_LEVEL)) {
