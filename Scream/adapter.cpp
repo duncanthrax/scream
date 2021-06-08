@@ -34,7 +34,6 @@ PCHAR g_UnicastIPv4;
 DWORD g_UnicastPort;
 //0 = false, otherwhise it's value is the size in MiB of the IVSHMEM we want to use
 UINT8 g_UseIVSHMEM;
-DWORD g_silenceSamples;
 DWORD g_silenceThreshold;
 
 //-----------------------------------------------------------------------------

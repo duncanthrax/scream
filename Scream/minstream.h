@@ -51,9 +51,8 @@ protected:
     CSaveData                   m_SaveData;                         // Object to save settings.
     CIVSHMEMSaveData            m_IVSHMEMSaveData;                  // Object to save settings if we are using IVSHMEM.
 
-    ULONGLONG                   m_silenceState = 0;                 // 0     = NOT SILENT
-                                                                    // 1-g_silenceSamples = GAP
-                                                                    // 1000  = SILENT
+    ULONGLONG                   m_silenceState = 0;                 // 0 = Not Silent, >g_silenceThreshold=Silent,
+                                                                    // values lower than threshold = Gap
     WORD                        m_bitsPerSample;
    
 public:

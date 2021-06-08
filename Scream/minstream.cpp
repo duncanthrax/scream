@@ -46,7 +46,6 @@ CMiniportWaveCyclicStream::CMiniportWaveCyclicStream(PUNKNOWN other) : CUnknown(
     m_ulDmaBufferSize = 0;
     m_ulDmaMovementRate = 0;
     m_ullDmaTimeStamp = 0;
-
     m_silenceState = 0;
 }
 
