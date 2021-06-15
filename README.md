@@ -155,6 +155,11 @@ Tweak the registry in the manner depicted in this screenshot
 
 Using IVSHMEM between Windows guest and Linux host
 -------------------------------------------------------------
+_**Note:** While this setup is possible, it is generally ill-advised. 
+Scream on QEMU does not benefit from using IVSHMEM.  
+If anything, it increases CPU load and latency due to the polling nature of the implementation.  
+Scream in QEMU operates far better over a standard virtio-net device._
+
 This can be used as an alternative to the default networked
 transfer when using QEMU/KVM.
 - Add a IVSHMEM device to your VM. We recommend a size of 2MB.
