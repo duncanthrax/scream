@@ -225,7 +225,7 @@ NTSTATUS SetSockOpt (PWSK_SOCKET Socket, ULONG level, ULONG option_name, ULONG o
 {
 	PWSK_PROVIDER_BASIC_DISPATCH Dispatch;
 	PIRP		Irp;
-	ULONG		SocketOptionState;
+	//ULONG		SocketOptionState;
 	NTSTATUS	Status;
 
 	Dispatch = (PWSK_PROVIDER_BASIC_DISPATCH)(Socket->Dispatch);
