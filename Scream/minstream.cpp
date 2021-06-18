@@ -15,6 +15,9 @@ Abstract:
 #include "minwave.h"
 #include "minstream.h"
 #include "wavtable.h"
+#include <stdlib.h>
+
+#define SILENCE_SAMPLE_LEVEL 5
 
 // #pragma code_seg("PAGE")
 
@@ -43,6 +46,7 @@ CMiniportWaveCyclicStream::CMiniportWaveCyclicStream(PUNKNOWN other) : CUnknown(
     m_ulDmaBufferSize = 0;
     m_ulDmaMovementRate = 0;
     m_ullDmaTimeStamp = 0;
+    m_silenceState = 0;
 }
 
 //=============================================================================
@@ -126,6 +130,7 @@ Return Value:
         m_fCapture                        = Capture_;
         m_usBlockAlign                    = pWfx->nBlockAlign;
         m_fFormat16Bit                    = (pWfx->wBitsPerSample == 16);
+        m_bitsPerSample                   = pWfx->wBitsPerSample;
         m_ksState                         = KSSTATE_STOP;
         m_ulDmaPosition                   = 0;
         m_ullElapsedTimeCarryForward      = 0;
@@ -637,7 +642,68 @@ Return Value:
         m_IVSHMEMSaveData.WriteData((PBYTE)Source, ByteCount);
     }
     else {
-        m_SaveData.WriteData((PBYTE)Source, ByteCount);
+        ULONG start_copy_byte = 0;
+        ULONG bytes_per_sample = m_bitsPerSample / 8;
+        ULONG sample_count = ByteCount / bytes_per_sample;
+
+        // Check for silence, if the relevant registry entry is set
+        if (g_silenceThreshold > 0)  {
+            for (unsigned int i = 0; i < sample_count; i++) {
+                // Work out if samples worth of bytes is zero
+                BOOL current_sample_is_silent = FALSE;
+            
+                // At this stage, the data in the Source buffer is PCM audio, 16/24/32 bit signed integers
+                // Tests have shown playing a .wav file of pure silence generates PCM values between -2 and +2
+
+                // 16-bit
+                if ((bytes_per_sample == 2) && (abs(((INT16*)Source)[i]) < SILENCE_SAMPLE_LEVEL)) {
+                    current_sample_is_silent = TRUE;
+                }
+                // 24-bit is not yet supported, would need some extra code to up-scale the sample to 32-bit for checking
+
+                // For 32-bit, the 16-bit threshold is scaled up to match the 32-bit range
+                if ((bytes_per_sample == 4) && (abs(((INT32*)Source)[i]) < (65536 * SILENCE_SAMPLE_LEVEL))) {
+                    current_sample_is_silent = TRUE;
+                }
+
+                if (m_silenceState > g_silenceThreshold) {
+                    // Current state: Silent
+                    if (!current_sample_is_silent) {
+                        // State transition: Silent -> Not Silent
+                        m_silenceState = 0;
+                        start_copy_byte = i * bytes_per_sample;
+                    }
+                }
+                else if (m_silenceState > 0) {
+                    // Current state : Gap
+                    if (current_sample_is_silent) {
+                        m_silenceState++;
+                        if (m_silenceState > g_silenceThreshold) {
+                            // State transition: Gap -> Silent
+
+                            // Need to write out whatever has occurred so far
+                            m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), (i * bytes_per_sample) - start_copy_byte);
+                        }
+                    }
+                    else {
+                        // State transition: Gap -> Not Silent
+                        m_silenceState = 0;
+                    }
+                }
+                else {
+                    // Current state : Not Silent
+                    if (current_sample_is_silent) {
+                        // State transition: Not Silent -> Gap
+                        m_silenceState++;
+                    }
+                }
+            }
+        }
+
+        // Finished checking; if we are in Silence we should not write out, but Gap or Not Silent should be written out
+        if (m_silenceState <= g_silenceThreshold) {
+            m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), ByteCount - start_copy_byte);
+        }
     }
 } // CopyTo
 
