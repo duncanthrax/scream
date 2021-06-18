@@ -151,7 +151,20 @@ This is only recommended if multicast gives you problems.
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
 
-<img src="doc/registry.png"/>
+<img src="doc/registry_unicast.png"/>
+
+Using silence suppression (optional)
+-------------------------------------------------------------
+Silence suppression will avoid sending data over the network
+if there is silence. Once a set number of consecutive silent
+samples are processed, Scream will stop sending data. Add the
+following registry key - the suggested value is 10000 samples
+ (~1/4 second at 44100Hz).
+
+Tweak the registry in the manner depicted in this screenshot
+(you will have to create the "Options" key), then reboot:
+
+<img src="doc/registry_silence.png"/>
 
 Using IVSHMEM between Windows guest and Linux host
 -------------------------------------------------------------

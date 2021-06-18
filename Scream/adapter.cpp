@@ -34,6 +34,7 @@ PCHAR g_UnicastIPv4;
 DWORD g_UnicastPort;
 //0 = false, otherwhise it's value is the size in MiB of the IVSHMEM we want to use
 UINT8 g_UseIVSHMEM;
+DWORD g_silenceThreshold;
 
 //-----------------------------------------------------------------------------
 // Referenced forward.
@@ -78,6 +79,7 @@ Returns:
     UNICODE_STRING      unicastIPv4;
     DWORD               unicastPort = 0;
     DWORD               useIVSHMEM = 0;
+    DWORD               silenceThreshold = 0;
 
     RtlZeroMemory(&unicastIPv4, sizeof(UNICODE_STRING));
 
@@ -85,6 +87,7 @@ Returns:
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastIPv4", &unicastIPv4, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UnicastPort", &unicastPort, REG_NONE,  NULL, 0 },
         { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"UseIVSHMEM", &useIVSHMEM, REG_NONE,  NULL, 0 },
+        { NULL,   RTL_QUERY_REGISTRY_DIRECT, L"SilenceThreshold", &silenceThreshold, REG_NONE,  NULL, 0 },
         { NULL,   0,                         NULL,           NULL,         0,         NULL, 0 }
     };
 
@@ -122,6 +125,8 @@ Returns:
         DPF(D_VERBOSE, ("RtlQueryRegistryValues failed, using default values, 0x%x", ntStatus));
         // Don't return error because we will operate with default values.
     }
+
+    g_silenceThreshold = silenceThreshold;
 
     if (unicastPort > 0) {
         g_UnicastPort = unicastPort;
