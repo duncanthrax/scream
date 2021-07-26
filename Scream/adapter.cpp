@@ -145,7 +145,12 @@ Returns:
         // Don't return error because we will operate with default values.
     }
 
-    g_silenceThreshold = silenceThreshold;
+    if (silenceThreshold > 0) {
+        g_silenceThreshold = silenceThreshold;
+    }
+    else {
+        g_silenceThreshold = 0;
+    }
 
     if (unicastPort > 0) {
         g_UnicastPort = unicastPort;
