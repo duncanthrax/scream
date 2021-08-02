@@ -20,13 +20,10 @@ and additions. See LICENSE for the actual license text.
 
 Download and install
 ---------------------------------------------------------------
-A ZIP file containing a signed x64 build is [available on the
-GitHub releases page](https://github.com/duncanthrax/scream/releases).
+A ZIP file containing signed builds for Windows 10 on x64, x86
+and arm64 is [available on the GitHub releases page](https://github.com/duncanthrax/scream/releases).
 The "installer" is a batch file that needs to be run with
 administrator rights.
-
-The build is supposed to run on all x64 versions of Windows 7
-through Windows 10.
 
 #### Installation on Windows 10 version 1607 and newer
 
