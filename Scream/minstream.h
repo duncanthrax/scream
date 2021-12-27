@@ -54,6 +54,7 @@ protected:
     ULONGLONG                   m_silenceState = 0;                 // 0 = Not Silent, >g_silenceThreshold=Silent,
                                                                     // values lower than threshold = Gap
     WORD                        m_bitsPerSample;
+    BYTE                        m_bChannels;
    
 public:
     DECLARE_STD_UNKNOWN();
