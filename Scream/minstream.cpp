@@ -131,6 +131,7 @@ Return Value:
         m_usBlockAlign                    = pWfx->nBlockAlign;
         m_fFormat16Bit                    = (pWfx->wBitsPerSample == 16);
         m_bitsPerSample                   = pWfx->wBitsPerSample;
+        m_bChannels                       = pWfx->nChannels;
         m_ksState                         = KSSTATE_STOP;
         m_ulDmaPosition                   = 0;
         m_ullElapsedTimeCarryForward      = 0;
@@ -671,7 +672,7 @@ Return Value:
                     if (!current_sample_is_silent) {
                         // State transition: Silent -> Not Silent
                         m_silenceState = 0;
-                        start_copy_byte = i * bytes_per_sample;
+                        start_copy_byte = (i / m_bChannels) * m_bChannels * bytes_per_sample;
                     }
                 }
                 else if (m_silenceState > 0) {
@@ -682,7 +683,7 @@ Return Value:
                             // State transition: Gap -> Silent
 
                             // Need to write out whatever has occurred so far
-                            m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), (i * bytes_per_sample) - start_copy_byte);
+                            m_SaveData.WriteData(((PBYTE)Source + start_copy_byte), ((i / m_bChannels) * m_bChannels * bytes_per_sample) - start_copy_byte);
                         }
                     }
                     else {
