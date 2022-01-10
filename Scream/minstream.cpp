@@ -131,7 +131,7 @@ Return Value:
         m_usBlockAlign                    = pWfx->nBlockAlign;
         m_fFormat16Bit                    = (pWfx->wBitsPerSample == 16);
         m_bitsPerSample                   = pWfx->wBitsPerSample;
-        m_bChannels                       = pWfx->nChannels;
+        m_bChannels                       = (BYTE)(pWfx->nChannels);
         m_ksState                         = KSSTATE_STOP;
         m_ulDmaPosition                   = 0;
         m_ullElapsedTimeCarryForward      = 0;
