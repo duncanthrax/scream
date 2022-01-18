@@ -391,43 +391,42 @@ static int process_source_data(receiver_data_t *data)
 
 int jack_process(jack_nframes_t nframes, void *arg)
 {
-  uint8_t channels = jo_data.receiver_format.channels;
-  uint32_t total_nframes = nframes * channels;
+  const uint8_t channels = jo_data.receiver_format.channels;
+  const uint32_t total_nframes = nframes * channels;
   uint32_t read_frames = ringbuffer_size(&jo_data.rb);
-
-  // wait until rb fills up a bit to prevent early underruns
-  if (read_frames < (total_nframes + 200))
-  {
-    return 0;
-  }
 
   if (total_nframes <= read_frames)
   {
     read_frames = total_nframes;
   }
-  else
-  {
-    // JACK wants more than we can fullfill
-    fprintf(stderr, "jack_process: underflow!! read_frames=%u  nframes=%u\n", read_frames, total_nframes);
-  }  
-  
 
-  if (read_frames > 0)
-  {
-    for (int port = 0; port < channels; ++port)
-    {
-      jo_data.buffers[port] = jack_port_get_buffer(jo_data.output_ports[port], nframes);
-    }
+  const uint32_t read_frames_per_ch = read_frames / channels;
+  const uint32_t underrun_frames_per_ch = nframes - read_frames_per_ch;
 
-    // transfer samples from ringbuffer to JACK port buffers
-    for (uint32_t sample = 0; sample < read_frames /channels; ++sample)
+  for (int port = 0; port < channels; ++port)
+  {
+    jo_data.buffers[port] = jack_port_get_buffer(jo_data.output_ports[port], nframes);
+  }
+
+  // transfer samples from ringbuffer to JACK port buffers
+  if (read_frames_per_ch > 0)
+  {
+    for (uint32_t sample = 0; sample < read_frames_per_ch; ++sample)
     {
       for (int port = 0; port < channels; ++port)
       {
         *jo_data.buffers[port] = ringbuffer_pop(&jo_data.rb);
         jo_data.buffers[port]++;
-        
       }
+    }
+  }
+
+  // fill remaining port buffer space with nothing
+  if (underrun_frames_per_ch > 0)
+  {
+    for (int port = 0; port < channels; ++port)
+    {
+      memset(jo_data.buffers[port], 0, sizeof(ringbuffer_element_t) * underrun_frames_per_ch);
     }
   }
 
