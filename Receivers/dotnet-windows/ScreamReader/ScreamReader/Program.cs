@@ -59,7 +59,7 @@ namespace ScreamReader
         {
             this.udpPlayer.Dispose();
             trayIcon.Visible = false;
-            Application.Exit();
+            Environment.Exit(0);
         }
 
         protected override void OnLoad(EventArgs e)

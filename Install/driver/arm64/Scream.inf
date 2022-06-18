@@ -3,7 +3,7 @@ Signature="$CHICAGO$"
 Class=MEDIA
 Provider=%SCR%
 ClassGUID={4d36e96c-e325-11ce-bfc1-08002be10318}
-DriverVer = 04/27/2020,17.31.13.480
+DriverVer = 01/11/2022,8.16.57.668
 CatalogFile=scream.cat
 
 [SourceDisksNames]
@@ -13,9 +13,18 @@ CatalogFile=scream.cat
 scream.sys=222
 
 [Manufacturer]
-%MfgName%=MicrosoftDS,NTAMD64
+%MfgName%=MicrosoftDS,NTAMD64,NTx86,NTARM,NTARM64
 
 [MicrosoftDS.NTAMD64]
+%Scream.DeviceDesc%=Scream,*Scream
+
+[MicrosoftDS.NTx86]
+%Scream.DeviceDesc%=Scream,*Scream
+
+[MicrosoftDS.NTARM]
+%Scream.DeviceDesc%=Scream,*Scream
+
+[MicrosoftDS.NTARM64]
 %Scream.DeviceDesc%=Scream,*Scream
 
 [DestinationDirs]

@@ -8,7 +8,7 @@ enum receiver_type {
 };
 
 enum output_type {
-  Raw, Alsa, Pulseaudio
+  Raw, Alsa, Pulseaudio, Jack
 };
 
 typedef struct receiver_format {

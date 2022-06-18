@@ -132,5 +132,11 @@ extern NTSTATUS PropertyHandler_WaveFilter(IN PPCPROPERTY_REQUEST PropertyReques
 extern PCHAR g_UnicastIPv4;
 extern DWORD g_UnicastPort;
 extern UINT8 g_UseIVSHMEM;
+extern PCHAR g_UnicastSrcIPv4;
+extern DWORD g_UnicastSrcPort;
+extern DWORD g_DSCP;
+extern DWORD g_TTL;
+extern DWORD g_ScreamVersion;
+extern DWORD g_silenceThreshold;
 
 #endif

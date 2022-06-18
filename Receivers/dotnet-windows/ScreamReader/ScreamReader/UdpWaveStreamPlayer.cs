@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
+
 
 namespace ScreamReader
 {
@@ -52,7 +54,13 @@ namespace ScreamReader
         /// </summary>
         public int Volume
         {
-            get { return this.volume; }
+
+            get
+            {
+                if (this.output != null) this.volume = (int)(output.Volume * 100);
+                Debug.WriteLine("get Volume = {0}", this.volume);
+                return this.volume;
+            }
             set
             {
                 if (value < 0 || value > 100)
@@ -64,6 +72,7 @@ namespace ScreamReader
                 if (this.output != null)
                 {
                     this.output.Volume = (float)value / 100f;
+                    Debug.WriteLine("set Volume = {0}", this.volume);
                 }
             }
         }
@@ -123,10 +132,24 @@ namespace ScreamReader
                 var rsws = new BufferedWaveProvider(new WaveFormat(44100, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
 
                 this.output = new WasapiOut();
+                // 
+                // This code isn't thread safe. Getting inconsistent results if Debug build is enabled and/or run from the debugger
+                // 
+                // If volume isn't initialized and Debugs are enabled the loudnessFader starts with the actual volume level
+                // This is minor though because the fader only checks once and doesn't handle any events so it will get out of sync
+                // 
+                this.volume = (int)(this.output.Volume * 100); // initialize for now
+                Debug.WriteLine("First volume check = {0}", this.volume);
+                Debug.WriteLine("First volume check = {0}", this.output.Volume * 100);
+
+#if OVERRIDE_MASTERVOLUME
                 this.Volume = 100;
+#endif
 
                 this.output.Init(rsws);
+               
                 this.output.Play();
+                //this.volume = (int)this.output.Volume * 100; // should this go here? doesn't seem to read MasterVolumeLevelScalar
 
                 Task.Factory.StartNew(() =>
                 {
@@ -153,9 +176,15 @@ namespace ScreamReader
 
                                 rsws = new BufferedWaveProvider(new WaveFormat(rate, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
                                 this.output = new WasapiOut();
-                                this.Volume = 100;
+                                //
+                                //    this.volume = (int)(this.output.Volume * 100);  // need to set this here or exception in loudnessFader dialog
+                                //    Debug.WriteLine("2nd volume check = {0}", this.volume);
+                                Debug.WriteLine("2nd volume check = {0}", this.output.Volume * 100);
+
                                 this.output.Init(rsws);
                                 this.output.Play();
+                            //    this.volume = (int)(this.output.Volume * 100); // can initialize here 
+                                Debug.WriteLine("3rd volume check = {0}", this.output.Volume * 100);
                             }
                             rsws.AddSamples(data, 5, data.Length - 5);
                         } catch (SocketException) { } // Usually when interrupted

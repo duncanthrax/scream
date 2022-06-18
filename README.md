@@ -20,26 +20,48 @@ and additions. See LICENSE for the actual license text.
 
 Download and install
 ---------------------------------------------------------------
-A ZIP file containing a signed x64 build is [available on the
-GitHub releases page](https://github.com/duncanthrax/scream/releases).
+A ZIP file containing signed builds for Windows 10 on x64, x86
+and arm64 is [available on the GitHub releases page](https://github.com/duncanthrax/scream/releases).
 The "installer" is a batch file that needs to be run with
 administrator rights.
 
-The build is supposed to run on all x64 versions of Windows 7
-through Windows 10. 
+#### Installation on Windows 10 version 1607 and newer
 
 Microsoft has [recently tightened the rules for signing kernel
 drivers](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/kernel-mode-code-signing-policy--windows-vista-and-later-). These new rules apply to newer Windows 10 installations
-that were not upgraded from an earlier version. If your installation
+which were not upgraded from an earlier version. If your installation
 is subject to these rules, the driver will not install.
-**Workaround: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
+
+However, cross-signed kernel drivers are still accepted by Windows 10 version 1607 (and greater) if any of the following exceptions apply:
+
+- The driver is a boot-up driver
+- Windows 10 was upgraded from a version preceding 1607
+- Secure Boot is disabled in BIOS or not available at all
+- The driver was signed with a certificate issued before 29 July 2015
+- A special registry value has been set, thereby allowing cross-signed drivers to load on systems with Secure Boot enabled
+
+**Workaround #1: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
 For more information, see [this issue](https://github.com/duncanthrax/scream/issues/8).
+
+**Workaround #2: Add this special registry value:** 
+
+```
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CI\Policy]
+"UpgradedSystem"=dword:00000001
+```
+
+Please review the following resources for more information.
+
+- ["Back Doors for Cross-Signed Drivers", a blogpost by Geoff Chappell](https://www.geoffchappell.com/notes/security/whqlsettings/index.htm)
+- ["Windows 10 Anniversary Update - Digital Signature Question", a forum thread on MyDigitalLife](https://forums.mydigitallife.net/threads/windows-10-anniversary-update-digital-signature-question.69970/#post-1272392)
+ 
 
 Receivers
 ---------------------------------------------------------------
-- Unix with Pulseaudio or ALSA: Not included in the installer package.
+- Unix with Pulseaudio, JACK or ALSA: Not included in the installer package.
 Please see [the README in the Receivers/unix folder](https://github.com/duncanthrax/scream/tree/master/Receivers/unix).
 Various contributors have written code for this receiver:
+    * @roovio: JACK support.
     * @ivan: Original ALSA code.
     * @martinellimarco: IVSHMEM support.
     * @accumulator: Refactoring into single binary and cmake support.
@@ -51,13 +73,19 @@ support positional mapping of multichannel (more than stereo)
 setups - meaning a mismatch in speaker setup can lead to channels
 being played in the wrong position.
 
-All receivers can be run as unprivileged users. Receiver
-systems that have an input firewall need to open UDP port 4010,
-or whatever custom port you use.
-
-A 3rd-party receiver that supports Scream streams is
+- A 3rd-party receiver that supports Scream streams is
 https://github.com/mincequi/cornrow. It's primarily meant for
 embedded devices.
+
+- @tomek-o wrote receivers for low-power embedded systems, great
+  for building ethernet-attached active speakers. 
+  - [STM32F429 (ARM) Scream Receiver](http://tomeko.net/projects/scream_eth/)
+  - [ESP32 Scream (and RTP) Receiver](http://tomeko.net/projects/esp32_rtp_pager/)
+
+Receivers can usually be run as unprivileged users. Receiver
+systems that have an input **firewall need to open UDP port 4010**,
+or whatever custom port you use.
+
 
 Functional description
 ---------------------------------------------------------------
@@ -120,10 +148,28 @@ This is only recommended if multicast gives you problems.
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
 
-<img src="doc/registry.png"/>
+<img src="doc/registry_unicast.png"/>
+
+Using silence suppression (optional)
+-------------------------------------------------------------
+Silence suppression will avoid sending data over the network
+if there is silence. Once a set number of consecutive silent
+samples are processed, Scream will stop sending data. Add the
+following registry key - the suggested value is 10000 samples
+ (~1/4 second at 44100Hz).
+
+Tweak the registry in the manner depicted in this screenshot
+(you will have to create the "Options" key), then reboot:
+
+<img src="doc/registry_silence.png"/>
 
 Using IVSHMEM between Windows guest and Linux host
 -------------------------------------------------------------
+> :warning: _**Note:** While this setup is possible, it is generally
+> only advised if you can't use network transfer via a standard virtio-net device.
+> Scream on QEMU does not benefit from using IVSHMEM. It increases CPU
+> load and latency due to the polling nature of the implementation._
+
 This can be used as an alternative to the default networked
 transfer when using QEMU/KVM.
 - Add a IVSHMEM device to your VM. We recommend a size of 2MB.

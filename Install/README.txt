@@ -1,6 +1,8 @@
 To install
 ------------------------------------------------------------
-Right-click "Install.bat" and choose "Run as administrator".
+Right-click one of the flavors of Install-XXX.bat and choose
+"Run as administrator". If you don't know which flavor, use
+"Install-x64.bat".
 
 To uninstall
 ------------------------------------------------------------
