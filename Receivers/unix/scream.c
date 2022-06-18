@@ -143,7 +143,7 @@ int main(int argc, char*argv[]) {
   char *pa_stream_name       = "Audio";
   char *jack_client_name     = "scream";
   int target_latency_ms      = 50;
-  int max_latency_ms         = 200;
+  int max_latency_ms         = 100;
   in_addr_t interface        = INADDR_ANY;
   uint16_t port              = DEFAULT_PORT;
   int opt;
