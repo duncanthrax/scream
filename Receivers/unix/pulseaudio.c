@@ -8,11 +8,12 @@ static struct pulse_output_data {
 
   receiver_format_t receiver_format;
   int latency;
+  int max_latency;
   char *sink;
   char *stream_name;
 } po_data;
 
-int pulse_output_init(int latency, char *sink, char *stream_name)
+int pulse_output_init(int latency, int max_latency, char *sink, char *stream_name)
 {
   int error;
 
@@ -34,11 +35,12 @@ int pulse_output_init(int latency, char *sink, char *stream_name)
   po_data.receiver_format.channel_map = 0x0003;
 
   po_data.latency = latency;
+  po_data.max_latency = max_latency;
   po_data.sink = sink;
   po_data.stream_name = stream_name;
 
   // set buffer size for requested latency
-  po_data.buffer_attr.maxlength = (uint32_t)-1;
+  po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000u, &po_data.ss);;
   po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000u, &po_data.ss);
   po_data.buffer_attr.prebuf = (uint32_t)-1;
   po_data.buffer_attr.minreq = (uint32_t)-1;
