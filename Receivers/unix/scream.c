@@ -221,7 +221,7 @@ int main(int argc, char*argv[]) {
     case Pulseaudio:
 #if PULSEAUDIO_ENABLE
       if (verbosity) fprintf(stderr, "Using Pulseaudio output\n");
-      if (pulse_output_init(target_latency_ms, max_latency_ms, pa_sink, stream_name) != 0) {
+      if (pulse_output_init(target_latency_ms, max_latency_ms, pa_sink, pa_stream_name) != 0) {
         return 1;
       }
       output_send_fn = pulse_output_send;
