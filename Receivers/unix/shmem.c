@@ -1,8 +1,9 @@
 #include "shmem.h"
 
 static rctx_shmem_t rctx_shmem;
+static useconds_t shmem_poll_delay;
 
-int init_shmem(char* shmem_device_file)
+int init_shmem(char* shmem_device_file, int target_latency_ms)
 {
   struct stat st;
   if (stat(shmem_device_file, &st) < 0)  {
@@ -25,6 +26,7 @@ int init_shmem(char* shmem_device_file)
 
   struct shmheader *header = (struct shmheader*)rctx_shmem.mmap;
   rctx_shmem.read_idx = header->write_idx;
+  shmem_poll_delay = target_latency_ms * 1000 / 8;
 
   return 0;
 }
@@ -47,7 +49,7 @@ void rcv_shmem(receiver_data_t* receiver_data)
       continue;
     }
     if (rctx_shmem.read_idx == header->write_idx) {
-      usleep(10000);//10ms
+      usleep(shmem_poll_delay);
       continue;
     }
     if (header->channels == 0 || header->channel_map == 0)
