@@ -176,6 +176,10 @@ int main(int argc, char*argv[]) {
       else if (strcmp(output,"alsa") == 0) output_mode = Alsa;
       else if (strcmp(output,"jack") == 0) output_mode = Jack;
       else if (strcmp(output,"raw") == 0) output_mode = Raw;
+      else {
+        fprintf(stderr, "invalid output: %s\n", output);
+        return 1;
+      }
       break;
     case 'd':
       alsa_device = strdup(optarg);
