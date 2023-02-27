@@ -84,6 +84,7 @@ ringbuffer_element_t ringbuffer_pop(struct ringbuffer_t *rb)
   {
     return rb->elements[ringbuffer_mask(rb->total_size, rb->read_pos++)];
   }
+  return -1;
 }
 
 

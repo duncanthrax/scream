@@ -32,11 +32,13 @@
 #include "pcap.h"
 #endif
 
-
 #if JACK_ENABLE
 #include "jack.h"
 #endif
 
+#if SNDIO_ENABLE
+#include "sndio.h"
+#endif
 
 static void show_usage(const char *arg0)
 {
@@ -46,28 +48,29 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "         All command line options are optional. Default is to use\n");
   fprintf(stderr, "         multicast with group address 239.255.77.77, port 4010.\n");
   fprintf(stderr, "\n");
-  fprintf(stderr, "         -u                        : Use unicast instead of multicast.\n");
-  fprintf(stderr, "         -p <port>                 : Use <port> instead of default port 4010.\n");
-  fprintf(stderr, "                                     Applies to both multicast and unicast.\n");
-  fprintf(stderr, "         -i <iface>                : Use local interface <iface>. Either the IP\n");
-  fprintf(stderr, "                                     or the interface name can be specified. In\n");
-  fprintf(stderr, "                                     multicast mode, uses this interface for IGMP.\n");
-  fprintf(stderr, "                                     In unicast, binds to this interface only.\n");
-  fprintf(stderr, "         -g <group>                : Multicast group address. Multicast mode only.\n");
-  fprintf(stderr, "         -m <ivshmem device path>  : Use shared memory device.\n");
-  fprintf(stderr, "         -P                        : Use libpcap to sniff the packets.\n");
+  fprintf(stderr, "         -u                           : Use unicast instead of multicast.\n");
+  fprintf(stderr, "         -p <port>                    : Use <port> instead of default port 4010.\n");
+  fprintf(stderr, "                                        Applies to both multicast and unicast.\n");
+  fprintf(stderr, "         -i <iface>                   : Use local interface <iface>. Either the IP\n");
+  fprintf(stderr, "                                        or the interface name can be specified. In\n");
+  fprintf(stderr, "                                        multicast mode, uses this interface for IGMP.\n");
+  fprintf(stderr, "                                        In unicast, binds to this interface only.\n");
+  fprintf(stderr, "         -g <group>                   : Multicast group address. Multicast mode only.\n");
+  fprintf(stderr, "         -m <ivshmem device path>     : Use shared memory device.\n");
+  fprintf(stderr, "         -P                           : Use libpcap to sniff the packets.\n");
   fprintf(stderr, "\n");
-  fprintf(stderr, "         -o pulse|alsa|jack|raw    : Send audio to PulseAudio, ALSA, Jack or stdout.\n");
-  fprintf(stderr, "         -d <device>               : ALSA device name. 'default' if not specified.\n");
-  fprintf(stderr, "         -s <sink name>            : Pulseaudio sink name.\n");
-  fprintf(stderr, "         -n <stream name>          : Pulseaudio stream name/description.\n");
-  fprintf(stderr, "         -n <client name>          : JACK client name.\n");
-  fprintf(stderr, "         -t <latency>              : Target latency in milliseconds. Defaults to 50ms.\n");
-  fprintf(stderr, "                                     Only relevant for PulseAudio and ALSA output.\n");
-  fprintf(stderr, "         -l <latency>              : Max latency in milliseconds. Defaults to 200ms.\n");
-  fprintf(stderr, "                                     Only relevant for PulseAudio output.\n");
+  fprintf(stderr, "         -o pulse|alsa|jack|sndio|raw : Send audio to PulseAudio, ALSA, Jack or stdout.\n");
+  fprintf(stderr, "         -d <device>                  : ALSA device name. 'default' if not specified.\n");
+  fprintf(stderr, "         -d <device>                  : sndio device name. 'AUDIODEVICE' if not specified.\n");
+  fprintf(stderr, "         -s <sink name>               : Pulseaudio sink name.\n");
+  fprintf(stderr, "         -n <stream name>             : Pulseaudio stream name/description.\n");
+  fprintf(stderr, "         -n <client name>             : JACK client name.\n");
+  fprintf(stderr, "         -t <latency>                 : Target latency in milliseconds. Defaults to 50ms.\n");
+  fprintf(stderr, "                                        Only relevant for PulseAudio and ALSA output.\n");
+  fprintf(stderr, "         -l <latency>                 : Max latency in milliseconds. Defaults to 200ms.\n");
+  fprintf(stderr, "                                        Only relevant for PulseAudio output.\n");
   fprintf(stderr, "\n");
-  fprintf(stderr, "         -v                        : Be verbose.\n");
+  fprintf(stderr, "         -v                           : Be verbose.\n");
   fprintf(stderr, "\n");
   exit(1);
 }
@@ -130,6 +133,10 @@ int main(int argc, char*argv[]) {
   enum output_type output_mode = Pulseaudio;
 #elif ALSA_ENABLE
   enum output_type output_mode = Alsa;
+#elif JACK_ENABLE
+  enum output_type output_mode = Jack;
+#elif SNDIO_ENABLE
+  enum output_type output_mode = Sndio;
 #else
   enum output_type output_mode = Raw;
 #endif
@@ -139,6 +146,7 @@ int main(int argc, char*argv[]) {
   char *output               = NULL;
   const char* interface_name = NULL;
   char *alsa_device          = "default";
+  char *sndio_device         = NULL;
   char *pa_sink              = NULL;
   char *pa_stream_name       = "Audio";
   char *jack_client_name     = "scream";
@@ -175,10 +183,16 @@ int main(int argc, char*argv[]) {
       if (strcmp(output,"pulse") == 0) output_mode = Pulseaudio;
       else if (strcmp(output,"alsa") == 0) output_mode = Alsa;
       else if (strcmp(output,"jack") == 0) output_mode = Jack;
+      else if (strcmp(output,"sndio") == 0) output_mode = Sndio;
       else if (strcmp(output,"raw") == 0) output_mode = Raw;
+      else {
+        fprintf(stderr, "invalid output: %s\n", output);
+        return 1;
+      }
       break;
     case 'd':
       alsa_device = strdup(optarg);
+      sndio_device = alsa_device;
       break;
     case 's':
       pa_sink = strdup(optarg);
@@ -251,6 +265,18 @@ int main(int argc, char*argv[]) {
       output_send_fn = jack_output_send;
 #else
       fprintf(stderr, "%s compiled without JACK support. Aborting\n", argv[0]);
+      return 1;
+#endif
+      break;
+    case Sndio:
+#if SNDIO_ENABLE
+      if (verbosity) fprintf(stderr, "Using sndio output\n");
+      if (sndio_output_init(max_latency_ms, sndio_device) != 0) {
+        return 1;
+      }
+      output_send_fn = sndio_output_send;
+#else
+      fprintf(stderr, "%s compiled without sndio support. Aborting\n", argv[0]);
       return 1;
 #endif
       break;
