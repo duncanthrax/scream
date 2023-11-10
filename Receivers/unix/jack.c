@@ -92,6 +92,7 @@ static struct jack_output_data
 {
   jack_client_t       *client;
   jack_port_t         **output_ports;   ///< number of ports actually used == rf->channels
+  uint32_t            num_output_ports;
   jack_default_audio_sample_t **buffers;
   receiver_format_t   receiver_format;
   uint32_t            sample_rate;      ///< source sample rate
@@ -286,8 +287,15 @@ static const char *channel_index_to_name(uint8_t channel)
 
 static int init_channels()
 {
+  if (jo_data.output_ports)
+  {
+    for (uint32_t i = 0 ; i < jo_data.num_output_ports; ++i)
+      jack_port_unregister(jo_data.client, jo_data.output_ports[i]);
+  }
+
   free(jo_data.output_ports);
-  jo_data.output_ports = malloc(sizeof(jack_port_t*) * jo_data.receiver_format.channels);
+  jo_data.num_output_ports = jo_data.receiver_format.channels;
+  jo_data.output_ports = malloc(sizeof(jack_port_t*) * jo_data.num_output_ports);
   free(jo_data.buffers);
   jo_data.buffers = malloc(sizeof(jack_default_audio_sample_t*) * jo_data.receiver_format.channels);
   for (int i = 0 ; i < jo_data.receiver_format.channels; ++i)
