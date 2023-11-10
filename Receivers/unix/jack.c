@@ -101,6 +101,7 @@ static struct jack_output_data
   size_t              resample_buffer_size;
   struct ringbuffer_t rb;
   int latency;
+  int connect;
 }
 jo_data;
 
@@ -116,7 +117,7 @@ int jack_process(jack_nframes_t nframes, void *arg);
 
 
 
-int jack_output_init(int latency, char *stream_name)
+int jack_output_init(int latency, char *stream_name, int connect)
 {
   jack_status_t status;
 
@@ -130,6 +131,7 @@ int jack_output_init(int latency, char *stream_name)
   jo_data.resample_buffer = NULL;
   jo_data.resample_buffer_size = 0;
   jo_data.latency = latency;
+  jo_data.connect = connect;
   jo_data.rb.elements = NULL;
 
   jo_data.client = jack_client_open(stream_name, JackNullOption, &status, NULL);
@@ -206,9 +208,10 @@ int jack_output_send(receiver_data_t *data)
       return 1;
     }
 
-    if (connect_ports())
+    if (jo_data.connect)
     {
-      return 1;
+      if (connect_ports())
+        return 1;
     }
 
     if (jo_data.rb.elements != NULL)
