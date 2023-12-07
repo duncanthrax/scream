@@ -129,7 +129,7 @@ page, as shown below. *Warning:* using high sampling freqs with
 bit rates on the network. We recommend to stick to 48kHz/16 bits
 for 5.1 or higher channel modes.
 
-<img src="doc/sampling-rate.png" width="700"/>
+<img src="doc/sampling-rate.png" alt="Bring up the Speakers Properties window and go to the Advanced tab to set the sample rate."> width="700"/>
 
 Setting up default speaker configuration (optional)
 -------------------------------------------------------------
@@ -140,7 +140,7 @@ driver dialog, as shown below. Please note that this is just a
 system default, and that application software (like games) may
 require their own settings to be made.
 
-<img src="doc/speaker-setup.png" width="700"/>
+<img src="doc/speaker-setup.png" alt="The “Configure” button starts a wizard where you can step by step select speaker setups and test them." width="700"/>
 
 Using unicast instead of multicast (optional)
 -------------------------------------------------------------
@@ -148,7 +148,7 @@ This is only recommended if multicast gives you problems.
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
 
-<img src="doc/registry_unicast.png"/>
+<img src="doc/registry_unicast.png" alt="The registry keys are under Computer\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Scream\Options and they're called UnicastIPv4 for the IP in REG_SZ format and UnicastPort for the port, in REG_DWORD format."/>
 
 Using silence suppression (optional)
 -------------------------------------------------------------
@@ -161,7 +161,7 @@ following registry key - the suggested value is 10000 samples
 Tweak the registry in the manner depicted in this screenshot
 (you will have to create the "Options" key), then reboot:
 
-<img src="doc/registry_silence.png"/>
+<img src="doc/registry_silence.png" alt="The registry key location is the same as above, Computer\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Scream\Options and the setting is SilenceThreshold which is a REG_DWORD that holds a sample number, like 10000 for example."/>
 
 Using IVSHMEM between Windows guest and Linux host
 -------------------------------------------------------------
