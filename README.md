@@ -124,10 +124,11 @@ Setting the sampling rate (optional)
 To satisfy your audiophile feelings, or to reduce unnecessary
 resampling, you might want to set a higher sampling rate and/or
 sampling width. You can do that on the driver "Advanced" property
-page, as shown below. *Warning:* using high sampling freqs with
-24/32 bits width in combination with multichannel can lead to high
-bit rates on the network. We recommend to stick to 48kHz/16 bits
-for 5.1 or higher channel modes.
+page, as shown below. *Warning:* using high sampling freqs with 24/32
+bits width in combination with multichannel can lead to high bit rates
+on the network. We recommend to stick to 48kHz/16 bits for 5.1 or
+higher channel modes, or 44.1kHz/16 if you are going to listen to
+music from CDs.
 
 <img src="doc/sampling-rate.png" alt="Bring up the Speakers Properties window and go to the Advanced tab to set the sample rate."> width="700"/>
 
