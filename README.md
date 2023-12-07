@@ -43,7 +43,7 @@ However, cross-signed kernel drivers are still accepted by Windows 10 version 16
 **Workaround #1: [Disable secure boot in BIOS](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/disabling-secure-boot).**
 For more information, see [this issue](https://github.com/duncanthrax/scream/issues/8).
 
-**Workaround #2: Add this special registry value:** 
+**Workaround #2: Add this special registry value:**
 
 ```
 [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CI\Policy]
@@ -54,7 +54,7 @@ Please review the following resources for more information.
 
 - ["Back Doors for Cross-Signed Drivers", a blogpost by Geoff Chappell](https://www.geoffchappell.com/notes/security/whqlsettings/index.htm)
 - ["Windows 10 Anniversary Update - Digital Signature Question", a forum thread on MyDigitalLife](https://forums.mydigitallife.net/threads/windows-10-anniversary-update-digital-signature-question.69970/#post-1272392)
- 
+
 
 Receivers
 ---------------------------------------------------------------
@@ -78,7 +78,7 @@ https://github.com/mincequi/cornrow. It's primarily meant for
 embedded devices.
 
 - @tomek-o wrote receivers for low-power embedded systems, great
-  for building ethernet-attached active speakers. 
+  for building ethernet-attached active speakers.
   - [STM32F429 (ARM) Scream Receiver](http://tomeko.net/projects/scream_eth/)
   - [ESP32 Scream (and RTP) Receiver](http://tomeko.net/projects/esp32_rtp_pager/)
 
@@ -117,7 +117,7 @@ stuff it into a local audio sink. The receiver system's kernel
 should automatically do the necessary IGMP signalling, so it's
 usually sufficient to just open a multicast listen socket and
 start reading from it. Minimal buffering (~ 4 times the UDP
-payload size) should be done to account for jitter. 
+payload size) should be done to account for jitter.
 
 Setting the sampling rate (optional)
 -------------------------------------------------------------
