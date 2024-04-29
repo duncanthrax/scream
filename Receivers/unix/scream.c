@@ -314,7 +314,9 @@ int main(int argc, char*argv[]) {
     case Multicast:
     default:
       if (verbosity) fprintf(stderr, "Starting %s receiver\n", receiver_mode == Unicast ? "unicast" : "multicast");
-      init_network(receiver_mode, interface, port, multicast_group);
+      if (init_network(receiver_mode, interface, port, multicast_group) != 0) {
+        return 1;
+      }
       receiver_rcv_fn = rcv_network;
       break;
   }
