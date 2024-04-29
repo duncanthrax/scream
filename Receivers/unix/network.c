@@ -1,23 +1,35 @@
 #include "network.h"
+#include "stdio.h"
 
 static rctx_network_t rctx_network;
 
 int init_network(enum receiver_type receiver_mode, in_addr_t interface, int port, char* multicast_group)
 {
-  rctx_network.sockfd = socket(AF_INET,SOCK_DGRAM,0);
+  rctx_network.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (rctx_network.sockfd < 0) {
+    perror("Failed to craete socket");
+    return 1;
+  }
 
   memset((void *)&(rctx_network.servaddr), 0, sizeof(rctx_network.servaddr));
   rctx_network.servaddr.sin_family = AF_INET;
   rctx_network.servaddr.sin_addr.s_addr = (receiver_mode == Unicast) ? interface : htonl(INADDR_ANY);
   rctx_network.servaddr.sin_port = htons(port);
-  bind(rctx_network.sockfd, (struct sockaddr *)&rctx_network.servaddr, sizeof(rctx_network.servaddr));
+
+  if (bind(rctx_network.sockfd, (struct sockaddr *)&rctx_network.servaddr, sizeof(rctx_network.servaddr)) != 0) {
+    perror("Failed to bind to interface");
+    return 1;
+  }
 
   if (receiver_mode == Multicast) {
     rctx_network.imreq.imr_multiaddr.s_addr = inet_addr(multicast_group ? multicast_group : DEFAULT_MULTICAST_GROUP);
     rctx_network.imreq.imr_interface.s_addr = interface;
 
-    setsockopt(rctx_network.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-              (const void *)&rctx_network.imreq, sizeof(struct ip_mreq));
+    if (setsockopt(rctx_network.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                  (const void *)&rctx_network.imreq, sizeof(struct ip_mreq)) != 0) {
+      perror("Failed to join multicast group");
+      return 1;
+    };
   }
 
   return 0;
