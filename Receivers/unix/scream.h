@@ -24,6 +24,6 @@ typedef struct receiver_data {
   unsigned char* audio;
 } receiver_data_t;
 
-static int verbosity = 0;
+extern int verbosity;
 
 #endif
