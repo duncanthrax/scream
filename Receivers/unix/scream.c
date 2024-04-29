@@ -40,6 +40,8 @@
 #include "sndio.h"
 #endif
 
+int verbosity = 0;
+
 static void show_usage(const char *arg0)
 {
   fprintf(stderr, "\n");
