@@ -326,6 +326,11 @@ int main(int argc, char*argv[]) {
 
   for (;;) {
     receiver_rcv_fn(&receiver_data);
+    if (receiver_data.format.channels == 0) {
+        // Invalid data, loop again
+        if (verbosity) fprintf(stderr, "Received invalid data, trying again\n");
+        continue;
+    }
     if (output_send_fn(&receiver_data) != 0)
       return 1;
   }
