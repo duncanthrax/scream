@@ -55,6 +55,14 @@ Please review the following resources for more information.
 - ["Back Doors for Cross-Signed Drivers", a blogpost by Geoff Chappell](https://www.geoffchappell.com/notes/security/whqlsettings/index.htm)
 - ["Windows 10 Anniversary Update - Digital Signature Question", a forum thread on MyDigitalLife](https://forums.mydigitallife.net/threads/windows-10-anniversary-update-digital-signature-question.69970/#post-1272392)
 
+#### Installation on Windows 11
+
+The installation methods above will not work on Windows 11, as the installation batch file relies on `devcon-x64`, which is not compatible with Windows 11. You can install unsigned drivers for Windows 11 with an alternative method, leveraging devcon's successor, `pnputil` and `bcdedit` to put Windows 11 in Test Mode. To install Scream for Windows 11:
+
+1. Ensure that Secure Boot is not enabled.
+2. Enable Test Mode: Open an administrator command prompt, and issue `bcdedit /set testsigning on`. Reboot your machine, and ensure you see "Test Mode" on the bottom-right corner of your wallpaper.
+3. Install the driver: Open an administrator command prompt, and navigate your terminal to `<scream folder>/Install/driver/<architecture>/`. Then, issue: `pnputil /add-driver .\Scream.inf /install`.
+4. Turn Off Test Signing: From an administrator command prompt, issue `bcdedit /set testsigning off`. Then, restart your computer. Ensure that Test Mode is now disabled by ensuring there is no message of "Test Mode" present on the bottom-right corner of your wallpaper. You should now see the Scream audio device in your audio devices, and can proceed with client setup.
 
 Receivers
 ---------------------------------------------------------------
