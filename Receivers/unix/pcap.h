@@ -6,7 +6,7 @@
 #include <pcap.h>
 #include <ctype.h>
 
-#define PCAP_BUFSIZ PCAP_BUF_SIZE * 8
+#define PCAP_BUFSIZ PCAP_ERRBUF_SIZE * 8
 #define SIZE_ETHERNET 14
 
 /* Ethernet addresses are 6 bytes */
