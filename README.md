@@ -94,6 +94,14 @@ Receivers can usually be run as unprivileged users. Receiver
 systems that have an input **firewall need to open UDP port 4010**,
 or whatever custom port you use.
 
+Analysis tools
+---------------------------------------------------------------
+- Wireshark dissector: the `tools/wireshark` folder contains a Lua plugin that
+  colourises and decodes Scream UDP packets in Wireshark 3.4+. The README in
+  that folder explains how to install the plugin, interpret the five-byte header
+  (sample-rate marker, sample width, channel mask) and adjust the UDP port or
+  heuristic registration when analysing captures.
+
 
 Functional description
 ---------------------------------------------------------------
