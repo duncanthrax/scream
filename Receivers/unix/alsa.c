@@ -54,6 +54,34 @@ int setup_alsa(snd_pcm_t **psnd, snd_pcm_format_t format, unsigned int rate, uns
                            channels, rate, soft_resample, latency);
   SNDCHK("snd_pcm_set_params", ret);
 
+  // snd_pcm_set_params sets start_threshold=buffer_size, which causes 200ms dead silence
+  // after every underrun recovery. Override it: start after one period instead.
+  // Also enable silence fill so packet gaps don't cause XRUN at all.
+  {
+    snd_pcm_hw_params_t *hw;
+    snd_pcm_sw_params_t *sw;
+    snd_pcm_uframes_t buffer_size, period_size;
+    int dir = 0;
+
+    snd_pcm_hw_params_alloca(&hw);
+    snd_pcm_hw_params_current(*psnd, hw);
+    snd_pcm_hw_params_get_buffer_size(hw, &buffer_size);
+    snd_pcm_hw_params_get_period_size(hw, &period_size, &dir);
+
+    snd_pcm_sw_params_alloca(&sw);
+    snd_pcm_sw_params_current(*psnd, sw);
+
+    // Start playback after one period (not full buffer) — 50ms dead time instead of 200ms
+    snd_pcm_sw_params_set_start_threshold(*psnd, sw, period_size);
+
+    // Fill silence when buffer drains — prevents XRUN during brief packet gaps
+    snd_pcm_sw_params_set_silence_threshold(*psnd, sw, 0);
+    snd_pcm_sw_params_set_silence_size(*psnd, sw, buffer_size);
+
+    ret = snd_pcm_sw_params(*psnd, sw);
+    SNDCHK("snd_pcm_sw_params", ret);
+  }
+
   ret = snd_pcm_set_chmap(*psnd, *channel_map);
   if (ret == -ENXIO) { // snd_pcm_set_chmap returns -ENXIO if device does not support channel maps at all
     if (channels > 2) { // but it's relevant only above 2 channels
@@ -81,6 +109,7 @@ int setup_alsa(snd_pcm_t **psnd, snd_pcm_format_t format, unsigned int rate, uns
 static int close_alsa(snd_pcm_t *snd) {
   int ret;
   if (!snd) return 0;
+  snd_pcm_drop(snd);
   ret = snd_pcm_close(snd);
   SNDCHK("snd_pcm_close", ret);
   return 0;
@@ -218,7 +247,7 @@ int alsa_output_send(receiver_data_t *data)
     if (written < 0) {
       ret = snd_pcm_recover(ao_data.snd, written, 0);
       SNDCHK("snd_pcm_recover", ret);
-      return 0;
+      continue;
     } else if (written < samples - i) {
       if (verbosity) fprintf(stderr, "Writing again after short write %ld < %d\n", written, samples - i);
     }

@@ -159,7 +159,8 @@ int pulse_output_send(receiver_data_t *data)
     }
 
     if (po_data.ss.rate > 0) {
-      // sample spec has changed, so the playback buffer size for the requested latency must be recalculated as well
+      // sample spec has changed, recalculate both so maxlength doesn't clamp tlength
+      po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000, &po_data.ss);
       po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000, &po_data.ss);
 
       if (po_data.s) pa_simple_free(po_data.s);
