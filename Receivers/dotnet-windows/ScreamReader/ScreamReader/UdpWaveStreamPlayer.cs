@@ -1,4 +1,5 @@
 ﻿using NAudio.Wave;
+using NAudio.CoreAudioApi;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -44,6 +45,8 @@ namespace ScreamReader
         private UdpClient udpClient;
 
         private WasapiOut output;
+
+        private MMDeviceEnumerator deviceEnumerator;
 
         private int volume;
         #endregion
@@ -151,6 +154,21 @@ namespace ScreamReader
                 this.output.Play();
                 //this.volume = (int)this.output.Volume * 100; // should this go here? doesn't seem to read MasterVolumeLevelScalar
 
+                var notificationClient = new AudioNotificationClient();
+                notificationClient.DefaultDeviceChanged += (sender, e) => {
+                    if (e.Flow == DataFlow.Render && e.Role == Role.Multimedia)
+                    {
+                        Debug.WriteLine($"Default device changed to {e.DeviceId}");
+                        this.output.Stop();
+                        this.output = new WasapiOut();
+                        this.output.Init(rsws);
+                        this.output.Play();
+                    }
+                };
+
+                this.deviceEnumerator = new MMDeviceEnumerator();
+                this.deviceEnumerator.RegisterEndpointNotificationCallback(notificationClient);
+
                 Task.Factory.StartNew(() =>
                 {
                     while (!this.cancellationTokenSource.IsCancellationRequested)
@@ -200,6 +218,7 @@ namespace ScreamReader
 
                 this.output.Stop();
                 this.udpClient.Close();
+                this.deviceEnumerator.Dispose();
             }, this.cancellationTokenSource.Token);
         }
 
