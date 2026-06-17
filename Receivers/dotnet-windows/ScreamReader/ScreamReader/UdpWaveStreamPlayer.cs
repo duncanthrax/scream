@@ -45,8 +45,11 @@ namespace ScreamReader
         private UdpClient udpClient;
 
         private WasapiOut output;
+        private readonly object outputLock = new object();
 
         private MMDeviceEnumerator deviceEnumerator;
+        private AudioNotificationClient notificationClient;
+        private int pendingDefaultDeviceRestart;
 
         private int volume;
         #endregion
@@ -134,40 +137,13 @@ namespace ScreamReader
 
                 var rsws = new BufferedWaveProvider(new WaveFormat(44100, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
 
-                this.output = new WasapiOut();
-                // 
-                // This code isn't thread safe. Getting inconsistent results if Debug build is enabled and/or run from the debugger
-                // 
-                // If volume isn't initialized and Debugs are enabled the loudnessFader starts with the actual volume level
-                // This is minor though because the fader only checks once and doesn't handle any events so it will get out of sync
-                // 
-                this.volume = (int)(this.output.Volume * 100); // initialize for now
-                Debug.WriteLine("First volume check = {0}", this.volume);
-                Debug.WriteLine("First volume check = {0}", this.output.Volume * 100);
+                this.RestartOutput(rsws);
 
 #if OVERRIDE_MASTERVOLUME
                 this.Volume = 100;
 #endif
 
-                this.output.Init(rsws);
-               
-                this.output.Play();
-                //this.volume = (int)this.output.Volume * 100; // should this go here? doesn't seem to read MasterVolumeLevelScalar
-
-                var notificationClient = new AudioNotificationClient();
-                notificationClient.DefaultDeviceChanged += (sender, e) => {
-                    if (e.Flow == DataFlow.Render && e.Role == Role.Multimedia)
-                    {
-                        Debug.WriteLine($"Default device changed to {e.DeviceId}");
-                        this.output.Stop();
-                        this.output = new WasapiOut();
-                        this.output.Init(rsws);
-                        this.output.Play();
-                    }
-                };
-
-                this.deviceEnumerator = new MMDeviceEnumerator();
-                this.deviceEnumerator.RegisterEndpointNotificationCallback(notificationClient);
+                this.RegisterDefaultDeviceNotifications();
 
                 Task.Factory.StartNew(() =>
                 {
@@ -189,20 +165,14 @@ namespace ScreamReader
                                 // TODO find a way to set a channel map in NAudio. I was not able to find any.
                                 // In practice if both the source and the receiver windows machine have the same speakers configuration setted this doesn't matter,
                                 // but in all other cases the channels will be possibly mismatched.
-                                this.output.Stop();
                                 var rate = ((currentRate >= 128) ? 44100 : 48000) * (currentRate % 128);
-
                                 rsws = new BufferedWaveProvider(new WaveFormat(rate, currentWidth, currentChannels)) { BufferDuration = TimeSpan.FromMilliseconds(200), DiscardOnBufferOverflow = true };
-                                this.output = new WasapiOut();
-                                //
-                                //    this.volume = (int)(this.output.Volume * 100);  // need to set this here or exception in loudnessFader dialog
-                                //    Debug.WriteLine("2nd volume check = {0}", this.volume);
-                                Debug.WriteLine("2nd volume check = {0}", this.output.Volume * 100);
 
-                                this.output.Init(rsws);
-                                this.output.Play();
-                            //    this.volume = (int)(this.output.Volume * 100); // can initialize here 
-                                Debug.WriteLine("3rd volume check = {0}", this.output.Volume * 100);
+                                this.RestartOutput(rsws);
+                            }
+                            else if (Interlocked.Exchange(ref this.pendingDefaultDeviceRestart, 0) == 1)
+                            {
+                                this.RestartOutput(rsws);
                             }
                             rsws.AddSamples(data, 5, data.Length - 5);
                         } catch (SocketException) { } // Usually when interrupted
@@ -216,9 +186,27 @@ namespace ScreamReader
 
                 this.shutdownLock.WaitOne();
 
-                this.output.Stop();
+                if (this.deviceEnumerator != null && this.notificationClient != null)
+                {
+                    this.deviceEnumerator.UnregisterEndpointNotificationCallback(this.notificationClient);
+                    this.notificationClient = null;
+                }
+                if (this.deviceEnumerator != null)
+                {
+                    this.deviceEnumerator.Dispose();
+                    this.deviceEnumerator = null;
+                }
+                lock (this.outputLock)
+                {
+                    if (this.output != null)
+                    {
+                        this.output.Stop();
+                        this.output.Dispose();
+                        this.output = null;
+                    }
+                }
+
                 this.udpClient.Close();
-                this.deviceEnumerator.Dispose();
             }, this.cancellationTokenSource.Token);
         }
 
@@ -247,5 +235,66 @@ namespace ScreamReader
             }
         }
         #endregion
+
+        #region device switch
+        private void RestartOutput(BufferedWaveProvider rsws)
+        {
+            lock (this.outputLock)
+            {
+                var oldOutput = this.output;
+                if (oldOutput != null)
+                {
+                    this.volume = (int)(this.output.Volume * 100);  // need to set this here or exception in loudnessFader dialog
+                    Debug.WriteLine("2nd volume check = {0}", this.output.Volume * 100);
+
+                    oldOutput.Stop();
+                    oldOutput.Dispose();
+                    Debug.WriteLine("2nd volume check = {0}", this.volume);
+                }
+
+                this.output = new WasapiOut();
+
+                if (oldOutput == null)
+                {
+                    // 
+                    // This code isn't thread safe. Getting inconsistent results if Debug build is enabled and/or run from the debugger
+                    // 
+                    // If volume isn't initialized and Debugs are enabled the loudnessFader starts with the actual volume level
+                    // This is minor though because the fader only checks once and doesn't handle any events so it will get out of sync
+                    // 
+                    this.volume = (int)(this.output.Volume * 100); // initialize for now
+                    Debug.WriteLine("First volume check = {0}", this.volume);
+                    Debug.WriteLine("First volume check = {0}", this.output.Volume * 100);                
+                }
+
+                this.output.Init(rsws);
+                this.output.Volume = (float)this.volume / 100f;
+                this.output.Play();
+                Debug.WriteLine("3rd volume check = {0}", this.output.Volume * 100);
+            }
+        }
+
+        private void RequestDefaultDeviceRestart()
+        {
+            Interlocked.Exchange(ref this.pendingDefaultDeviceRestart, 1);
+        }
+
+        private void RegisterDefaultDeviceNotifications()
+        {
+            this.notificationClient = new AudioNotificationClient();
+            this.notificationClient.DefaultDeviceChanged += (sender, e) =>
+            {
+                if (e.Flow == DataFlow.Render && e.Role == Role.Multimedia)
+                {
+                    Debug.WriteLine("Default device changed to {0}", e.DeviceId);
+                    this.RequestDefaultDeviceRestart();
+                }
+            };
+
+            this.deviceEnumerator = new MMDeviceEnumerator();
+            this.deviceEnumerator.RegisterEndpointNotificationCallback(this.notificationClient);
+        }
+        #endregion
+
     }
 }
