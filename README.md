@@ -85,6 +85,11 @@ being played in the wrong position.
 https://github.com/mincequi/cornrow. It's primarily meant for
 embedded devices.
 
+- A 3rd-party streamer, receiver, visualizer and room and dac
+measurement tools supporting Scream (and aes67) streams at
+https://github.com/mc36/freeRtr/tree/master/misc/streamer
+It's primarily meant for desktops.
+
 - @tomek-o wrote receivers for low-power embedded systems, great
   for building ethernet-attached active speakers.
   - [STM32F429 (ARM) Scream Receiver](http://tomeko.net/projects/scream_eth/)
@@ -111,13 +116,13 @@ see below). Delay is minimal, since all processing is done
 on kernel level. There is no userspace portion.
 
 The multicast target address and port is "239.255.77.77:4010".
-The audio is a raw PCM stream. The default sampling rate and
+The audio is a raw LSB PCM stream. The default sampling rate and
 size can be set as the "Default format" in the driver "Advanced"
 property page. The default speaker/channel configuration can be
 set on the "Configure" dialog of the Scream sound device.
 
 Data is transferred in UDP frames with a payload size of max.
-1157 bytes, consisting of 5 bytes header and 1152 bytes PCM data.
+1157 bytes, consisting of 5 bytes header and 1152 bytes LSB PCM data.
 The latter number is divisible by 4, 6 and 8, so a full number
 of samples for all channels will always fit into a packet.
 The first header byte denotes the sampling rate. Bit 7 specifies
