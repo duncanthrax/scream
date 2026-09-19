@@ -40,7 +40,7 @@ int pulse_output_init(int latency, int max_latency, char *sink, char *stream_nam
   po_data.stream_name = stream_name;
 
   // set buffer size for requested latency
-  po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000u, &po_data.ss);;
+  po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000u, &po_data.ss);
   po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000u, &po_data.ss);
   po_data.buffer_attr.prebuf = (uint32_t)-1;
   po_data.buffer_attr.minreq = (uint32_t)-1;
@@ -159,7 +159,8 @@ int pulse_output_send(receiver_data_t *data)
     }
 
     if (po_data.ss.rate > 0) {
-      // sample spec has changed, so the playback buffer size for the requested latency must be recalculated as well
+      // Both byte limits depend on the current format, not the initial 44.1 kHz stereo format.
+      po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000, &po_data.ss);
       po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000, &po_data.ss);
 
       if (po_data.s) pa_simple_free(po_data.s);

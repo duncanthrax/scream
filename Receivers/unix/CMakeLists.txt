@@ -85,3 +85,12 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
 
 include(GNUInstallDirs)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+include(CTest)
+if(BUILD_TESTING AND PULSEAUDIO_ENABLE)
+  add_executable(test_pulse_buffer tests/test_pulse_buffer.c pulseaudio.c)
+  target_include_directories(test_pulse_buffer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_directories(test_pulse_buffer PRIVATE ${PULSEAUDIO_LIBRARY_DIRS})
+  target_link_libraries(test_pulse_buffer PRIVATE ${PULSEAUDIO_LIBRARIES})
+  add_test(NAME pulse_buffer_attributes COMMAND test_pulse_buffer)
+endif()
