@@ -13,9 +13,42 @@ static struct pulse_output_data {
   char *stream_name;
 } po_data;
 
+/* Recompute both byte limits for every sample spec, before narrowing to uint32_t. */
+static int pulse_output_buffer_attr(void)
+{
+  uint64_t bytes_per_second = pa_bytes_per_second(&po_data.ss);
+  uint64_t maxlength = bytes_per_second * (uint64_t)po_data.max_latency / 1000;
+  uint64_t tlength = bytes_per_second * (uint64_t)po_data.latency / 1000;
+
+  /* UINT32_MAX is PulseAudio's server-default sentinel, not a byte limit. */
+  if (maxlength >= UINT32_MAX || tlength >= UINT32_MAX) {
+    fprintf(stderr, "PulseAudio buffer size exceeds the supported byte limit.\n");
+    return 1;
+  }
+
+  po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000, &po_data.ss);
+  po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000, &po_data.ss);
+  po_data.buffer_attr.prebuf = (uint32_t)-1;
+  po_data.buffer_attr.minreq = (uint32_t)-1;
+  po_data.buffer_attr.fragsize = (uint32_t)-1;
+
+  if (verbosity) {
+    fprintf(stderr, "PulseAudio requested buffers: target=%d ms (%u bytes), maximum=%d ms (%u bytes), rate=%u, channels=%u, format=%s.\n",
+      po_data.latency, po_data.buffer_attr.tlength,
+      po_data.max_latency, po_data.buffer_attr.maxlength,
+      po_data.ss.rate, po_data.ss.channels, pa_sample_format_to_string(po_data.ss.format));
+  }
+  return 0;
+}
+
 int pulse_output_init(int latency, int max_latency, char *sink, char *stream_name)
 {
   int error;
+
+  if (latency < 0 || max_latency < 0) {
+    fprintf(stderr, "PulseAudio latency must be non-negative.\n");
+    return 1;
+  }
 
   // set application icon
   setenv("PULSE_PROP_application.icon_name", "audio-card", 0);
@@ -39,12 +72,7 @@ int pulse_output_init(int latency, int max_latency, char *sink, char *stream_nam
   po_data.sink = sink;
   po_data.stream_name = stream_name;
 
-  // set buffer size for requested latency
-  po_data.buffer_attr.maxlength = pa_usec_to_bytes((pa_usec_t)po_data.max_latency * 1000u, &po_data.ss);;
-  po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000u, &po_data.ss);
-  po_data.buffer_attr.prebuf = (uint32_t)-1;
-  po_data.buffer_attr.minreq = (uint32_t)-1;
-  po_data.buffer_attr.fragsize = (uint32_t)-1;
+  if (pulse_output_buffer_attr() != 0) return 1;
 
   po_data.s = pa_simple_new(NULL,
     "Scream",
@@ -68,6 +96,7 @@ void pulse_output_destroy()
 {
   if (po_data.s)
     pa_simple_free(po_data.s);
+  po_data.s = NULL;
 }
 
 int pulse_output_send(receiver_data_t *data)
@@ -89,6 +118,12 @@ int pulse_output_send(receiver_data_t *data)
       default:
         printf("Unsupported sample size %hhu, not playing until next format switch.\n", rf->sample_size);
         po_data.ss.rate = 0;
+    }
+
+    if (!pa_sample_spec_valid(&po_data.ss)) {
+      fprintf(stderr, "Invalid PulseAudio sample specification, not playing until next format switch.\n");
+      po_data.ss.rate = 0;
+      return 0;
     }
 
     if (rf->channels == 1) {
@@ -151,7 +186,11 @@ int pulse_output_send(receiver_data_t *data)
     // this is for extra safety
     if (!pa_channel_map_valid(&po_data.channel_map)) {
       printf("Invalid channel mapping, falling back to CHANNEL_MAP_WAVEEX.\n");
-      pa_channel_map_init_extend(&po_data.channel_map, rf->channels, PA_CHANNEL_MAP_WAVEEX);
+      if (!pa_channel_map_init_extend(&po_data.channel_map, rf->channels, PA_CHANNEL_MAP_WAVEEX)) {
+        fprintf(stderr, "Unable to create PulseAudio channel mapping.\n");
+        po_data.ss.rate = 0;
+        return 0;
+      }
     }
     if (!pa_channel_map_compatible(&po_data.channel_map, &po_data.ss)){
       printf("Incompatible channel mapping.\n");
@@ -159,10 +198,12 @@ int pulse_output_send(receiver_data_t *data)
     }
 
     if (po_data.ss.rate > 0) {
-      // sample spec has changed, so the playback buffer size for the requested latency must be recalculated as well
-      po_data.buffer_attr.tlength = pa_usec_to_bytes((pa_usec_t)po_data.latency * 1000, &po_data.ss);
+      if (pulse_output_buffer_attr() != 0) {
+        po_data.ss.rate = 0;
+        return 1;
+      }
 
-      if (po_data.s) pa_simple_free(po_data.s);
+      pulse_output_destroy();
       po_data.s = pa_simple_new(NULL,
         "Scream",
         PA_STREAM_PLAYBACK,
@@ -171,13 +212,13 @@ int pulse_output_send(receiver_data_t *data)
         &po_data.ss,
         &po_data.channel_map,
         &po_data.buffer_attr,
-        NULL
+        &error
       );
       if (po_data.s) {
         printf("Switched format to sample rate %u, sample size %hhu and %u channels.\n", po_data.ss.rate, rf->sample_size, rf->channels);
       }
       else {
-        printf("Unable to open PulseAudio with sample rate %u, sample size %hhu and %u channels, not playing until next format switch.\n", po_data.ss.rate, rf->sample_size, rf->channels);
+        fprintf(stderr, "Unable to open PulseAudio with sample rate %u, sample size %hhu and %u channels: %s; not playing until next format switch.\n", po_data.ss.rate, rf->sample_size, rf->channels, pa_strerror(error));
         po_data.ss.rate = 0;
       }
     }
