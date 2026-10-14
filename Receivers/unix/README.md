@@ -76,6 +76,22 @@ Make sure to have read permission for the shared memory device and execute
 $ scream -m /dev/shm/scream-ivshmem
 ```
 
+### PulseAudio output
+
+Use `-t` to request a target buffer duration (default 50 ms) and `-l` to
+request a maximum buffer duration (default 100 ms), for example:
+
+```shell
+$ scream -o pulse -t 20 -l 100
+```
+
+Both byte limits are recalculated for the active sample rate, sample size
+and channel count. With `-v`, the receiver reports requested buffer values
+at stream creation. The server may negotiate different values; these requests
+are not a guarantee of end-to-end latency. The simple PulseAudio API does not
+expose negotiated buffer attributes. Inspect the stream on the server to
+verify effective buffering.
+
 ### ALSA output
 
 If you experience excessive underruns under normal operating conditions,

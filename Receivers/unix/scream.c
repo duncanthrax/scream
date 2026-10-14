@@ -69,7 +69,7 @@ static void show_usage(const char *arg0)
   fprintf(stderr, "         -n <client name>             : JACK client name.\n");
   fprintf(stderr, "         -t <latency>                 : Target latency in milliseconds. Defaults to 50ms.\n");
   fprintf(stderr, "                                        Only relevant for PulseAudio and ALSA output.\n");
-  fprintf(stderr, "         -l <latency>                 : Max latency in milliseconds. Defaults to 200ms.\n");
+  fprintf(stderr, "         -l <latency>                 : Max latency in milliseconds. Defaults to 100ms.\n");
   fprintf(stderr, "                                        Only relevant for PulseAudio output.\n");
   fprintf(stderr, "         -c                           : Do not connect jack ports.\n");
   fprintf(stderr, "\n");
